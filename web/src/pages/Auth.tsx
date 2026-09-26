@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
-import { LiquidBg } from '../components/LiquidBg'
 import { Logo, Spinner, ThemeToggle } from '../components/ui'
 import { useSession } from '../session'
 
@@ -53,7 +52,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
   const q = params.toString() ? `?${params}` : ''
   return (
     <div className="auth-page px-page">
-      <LiquidBg />
+
       <div style={{ position: 'fixed', top: 18, left: 22, right: 22, display: 'flex', justifyContent: 'space-between', zIndex: 3 }}><Logo /><ThemeToggle /></div>
       <motion.div className="card glow auth-card" initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
         <span className="eyebrow">{mode === 'login' ? 'bem-vindo de volta' : 'crédito grátis para começar'}</span>

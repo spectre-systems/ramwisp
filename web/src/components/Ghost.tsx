@@ -1,3 +1,4 @@
+import { GhostMark } from './Mark'
 import { LiquidGhost, type Mood } from './LiquidGhost'
 
 export type { Mood }
@@ -7,12 +8,12 @@ export function Ghost({ mood = 'calm', size = 44, hue = 0, className }: { mood?:
   return <LiquidGhost mood={mood} size={size} hue={hue} className={className} />
 }
 
-/** Logotipo: o símbolo (fantasminha com contatos de RAM) + "ram" leve + "wisp" forte, em Unbounded. */
-export function Wordmark({ size = 22 }: { size?: number }) {
+/** Logotipo: marca de traço + "ramwisp" em grotesca condensada. */
+export function Wordmark({ size = 20 }: { size?: number }) {
   return (
     <span className="wordmark" style={{ fontSize: size }}>
-      <LiquidGhost mood="calm" size={Math.round(size * 1.35)} className="wm-mark" />
-      <span><span className="wm-ram">ram</span>wisp</span>
+      <GhostMark size={Math.round(size * 1.35)} />
+      <span>RAMWISP</span>
     </span>
   )
 }
