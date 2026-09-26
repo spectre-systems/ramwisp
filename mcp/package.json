@@ -32,7 +32,7 @@
   "homepage": "https://ramwisp.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/spectre-systems/wisp-saas",
+    "url": "https://github.com/spectre-systems/ramwisp",
     "directory": "mcp"
   }
 }

@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react'
 import { api, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
-import { CopyCommand, Reveal } from '../components/ui'
+import { CopyCommand, GitHubMark, REPO_URL, Reveal } from '../components/ui'
 
 const ROOT_FP = '64:1A:03:21:A3:E2:44:EF:E4:56:46:31:95:D6:06:31:7E:D7:CD:CC:3C:17:56:E0:98:93:F3:C6:8F:79:BB:5B'
 
 export default function Security() {
   const [info, setInfo] = useState<PublicInfo | null>(null)
   useEffect(() => { api<PublicInfo>('GET', '/api/public/info').then(setInfo).catch(() => {}) }, [])
+  useEffect(() => {
+    // links como /transparencia#open-source: o React monta a página depois que o navegador procurou a âncora
+    const id = window.location.hash.slice(1)
+    if (!id) return
+    const t = setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }), 350)
+    return () => clearTimeout(t)
+  }, [])
   const pcrs = info?.pcrs?.pcr0 ?? []
   return (
     <div className="px-page">
@@ -51,6 +58,18 @@ export default function Security() {
             <div className="card" style={{ marginTop: 16 }}>
               <h3 style={{ marginTop: 0 }}>4. Access token only, never the refresh token</h3>
               <p className="muted">When you use your Claude Code or Codex login, the MCP only sends the access token, which expires on its own. The task time limit is trimmed to fit its validity. Your local session is never refreshed or logged out by us.</p>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.05}>
+            <div className="card" id="open-source" style={{ marginTop: 16, scrollMarginTop: 110 }}>
+              <h3 style={{ marginTop: 0 }}>5. The code is open — you can even run your own</h3>
+              <p className="muted">All of ramwisp is on GitHub. The MCP (the part that checks the attestation and encrypts your task) and the enclave image are <strong>Apache-2.0</strong>: read them, rebuild the image and compare its PCR0 with the values above.</p>
+              <p className="muted">The rest — server, dashboard and AWS setup — is under a sustainable-use license: you can host your own ramwisp <strong>for personal use or inside your company</strong>, on your own AWS account, for free. The only thing it doesn’t allow is selling it or offering it as a service to others.</p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
+                <a className="btn primary sm" href={REPO_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><GitHubMark size={16} />View source</a>
+                <a className="btn ghost sm" href={`${REPO_URL}#run-your-own-instance`} target="_blank" rel="noopener noreferrer">Self-hosting guide →</a>
+              </div>
             </div>
           </Reveal>
 

@@ -222,6 +222,7 @@ const FAQ: [string, string][] = [
   ['Is my code stored anywhere?', 'No. The copy goes encrypted straight into the enclave; our server only holds unreadable bytes until the machine picks them up. At the end, the machine is destroyed along with its memory.'],
   ['Can the subagent commit or push?', 'No. It never gets your git or SSH credentials. Changes come back as a patch and you decide whether to apply it.'],
   ['Why does it take a minute or two to start?', 'It is a brand-new machine, just for you, created for the task. It shines on jobs that take minutes to hours, in parallel.'],
+  ['Is it open source? Can I run it myself?', 'Yes. The code is on GitHub (github.com/spectre-systems/ramwisp). The MCP and the enclave image are Apache-2.0, and you can host your own ramwisp on your AWS account for free, for personal use or inside your company.'],
   ['Can I use my Claude or ChatGPT login?', 'For personal use, yes: the MCP uses the login already on your computer (access token only). For commercial or team use, put an API key in the MCP env instead.'],
   ['How is this different from an agent sandbox?', 'Sandboxes are infrastructure for people building agents, via an SDK. ramwisp is for people who use Claude Code or Codex every day: no code, your own subscription, and an attested enclave so not even we can see what runs.'],
 ]

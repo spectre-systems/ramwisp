@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useSession } from '../session'
-import { Logo, ThemeToggle } from './ui'
+import { GitHubLink, GitHubMark, Logo, REPO_URL, ThemeToggle } from './ui'
 
 export function Nav() {
   const { me } = useSession()
@@ -14,6 +14,7 @@ export function Nav() {
         <Link to="/transparencia">Transparency</Link>
       </div>
       <span className="spacer" />
+      <GitHubLink />
       <ThemeToggle />
       {me
         ? <Link className="btn primary sm" to="/painel">Dashboard</Link>
@@ -38,6 +39,7 @@ export function Footer() {
         <div className="footer-cols">
           <div><strong>Product</strong><a href="/#como">How it works</a><a href="/#precos">Pricing</a><Link to="/criar-conta">Create account</Link></div>
           <div><strong>Trust</strong><Link to="/transparencia">Transparency</Link><a href="/#privacidade">What we see</a></div>
+          <div><strong>Open source</strong><a href={REPO_URL} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><GitHubMark size={14} />GitHub</a><Link to="/transparencia#open-source">Run it yourself</Link></div>
         </div>
       </div>
       <div className="wrap faint" style={{ fontSize: 13, paddingTop: 24, borderTop: '1px solid var(--line)' }}>
