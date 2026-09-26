@@ -97,6 +97,10 @@ CREATE TABLE IF NOT EXISTS ledger (
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 `);
+// migrações simples (colunas novas em tabelas que já existem)
+for (const sql of ["ALTER TABLE jobs ADD COLUMN client TEXT"]) {
+  try { db.exec(sql); } catch { /* já existe */ }
+}
 
 export const now = () => Date.now();
 

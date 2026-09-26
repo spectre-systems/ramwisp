@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  ACTIVE, ago, api, ApiError, codexToml, dur, installCmd, usd,
+  ACTIVE, ago, api, ApiError, codexToml, dur, engineLabel, installCmd, usd, viaLabel,
   type Day, type Ev, type Job, type Ledger, type Token,
 } from '../api'
 import { CopyCommand, CountUp, Logo, RamBar, Spinner, StatusPill, ThemeToggle } from '../components/ui'
@@ -191,7 +191,7 @@ function LiveCard({ j }: { j: Job }) {
         <RamBar used={j.mem_used_mib ?? 0} total={total ?? 1} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
-        <span className="faint">{j.engine} · {j.instance_type} · {dur((Date.now() - since) / 1000)}</span>
+        <span className="faint">{viaLabel(j.client)} → {engineLabel(j.engine)} · {dur((Date.now() - since) / 1000)}</span>
         <button className="btn sm danger" onClick={kill}>Encerrar</button>
       </div>
     </motion.div>
@@ -254,14 +254,15 @@ function Agents() {
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>ID</th><th>Status</th><th>Motor</th><th>RAM</th><th>Pico</th><th>Duração</th><th>Custo</th><th>Quando</th></tr></thead>
+              <thead><tr><th>ID</th><th>Status</th><th>Pedido por</th><th>Motor</th><th>RAM</th><th>Pico</th><th>Duração</th><th>Custo</th><th>Quando</th></tr></thead>
               <tbody>
                 {jobs.data.map((j) => (
                   <Fragment key={j.id}>
                     <tr className="clickable" onClick={() => setOpen(open === j.id ? null : j.id)}>
                       <td className="mono">{j.id}{j.label && <div className="faint" style={{ fontFamily: 'var(--sans)', fontSize: 12 }}>{j.label}</div>}</td>
                       <td><StatusPill status={j.status} /></td>
-                      <td>{j.engine}</td>
+                      <td>{viaLabel(j.client)}</td>
+                      <td>{engineLabel(j.engine)}</td>
                       <td className="mono">{j.ram_gb} GB</td>
                       <td className="mono">{j.peak_mem_mib ? `${(j.peak_mem_mib / 1024).toFixed(1)} GB` : '—'}</td>
                       <td className="mono">{j.finished_at && j.launched_at ? dur((j.finished_at - j.launched_at) / 1000) : ACTIVE.includes(j.status) ? '…' : '—'}</td>
@@ -270,7 +271,7 @@ function Agents() {
                     </tr>
                     <AnimatePresence>
                       {open === j.id && (
-                        <tr><td colSpan={8} style={{ padding: 0, borderTop: 0 }}>
+                        <tr><td colSpan={9} style={{ padding: 0, borderTop: 0 }}>
                           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: 'hidden' }}>
                             <JobDetail j={j} />
                           </motion.div>
@@ -289,25 +290,36 @@ function Agents() {
 }
 
 function JobDetail({ j }: { j: Job }) {
-  const t = (ms: number | null) => (ms ? new Date(ms).toLocaleTimeString('pt-BR') : null)
-  const marks = [['pedido', j.created_at], ['máquina', j.launched_at], ['atestada', j.attested_at], ['trabalhando', j.started_at], ['fim', j.finished_at]].filter(([, v]) => v) as [string, number][]
+  const log = usePoll<Ev[]>(`/api/jobs/${j.id}/events`, ACTIVE.includes(j.status) ? 3000 : 0)
   const egress = Object.entries(j.egress ?? {}).sort((a, b) => b[1] - a[1])
+  const rows = (log.data ?? []).slice().sort((a, b) => a.at - b.at)
+  const t0 = rows[0]?.at ?? j.created_at
   return (
     <div style={{ padding: '6px 14px 18px' }}>
       <div className="detail-grid">
+        <div><div className="l">Pedido por</div>{viaLabel(j.client)}</div>
+        <div><div className="l">Motor</div>{engineLabel(j.engine)}</div>
         <div><div className="l">Máquina</div>{j.instance_type} · {j.enclave_cpus} vCPU</div>
         <div><div className="l">Memória da enclave</div>{(j.enclave_mem_mib / 1024).toFixed(0)} GB</div>
         <div><div className="l">Código de saída</div>{j.exit_code ?? '—'}</div>
-        <div><div className="l">Preço</div>{usd(j.rate_cents_h)}/h</div>
         <div><div className="l">Resultado</div>{j.collected_at ? 'recolhido e apagado' : j.status === 'done' ? 'aguardando o seu MCP' : '—'}</div>
       </div>
       {j.error && <div className="error-box" style={{ marginBottom: 12 }}>{j.error}</div>}
-      <div className="timeline">
-        {marks.map(([k, v]) => <div key={k}><span className="faint mono">{t(v)}</span><i /><span>{k}</span></div>)}
+      <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>LOG DO SUBAGENTE</div>
+      <div className="joblog mono">
+        {rows.length === 0 && <div className="faint">carregando…</div>}
+        {rows.map((e, i) => (
+          <div key={i} className="joblog-row">
+            <span className="faint">{new Date(e.at).toLocaleTimeString('pt-BR')}</span>
+            <span className="faint">+{Math.round((e.at - t0) / 1000)}s</span>
+            <span>{EVENT_LABEL[e.kind] ?? e.kind}</span>
+            <span className="faint">{detail(e)}</span>
+          </div>
+        ))}
       </div>
       {egress.length > 0 && (
         <>
-          <div className="faint" style={{ fontSize: 12, margin: '12px 0 6px' }}>Domínios acessados (só o nome e o volume; o conteúdo é cifrado)</div>
+          <div className="faint" style={{ fontSize: 12, margin: '14px 0 6px' }}>Domínios acessados (só o nome e o volume; o conteúdo é cifrado)</div>
           <div className="egress">{egress.map(([h, b]) => <span key={h} className="pill mono">{h} · {(b / 1024).toFixed(0)} KB</span>)}</div>
         </>
       )}
@@ -339,7 +351,7 @@ function Connect() {
               </>
             ) : (
               <>
-                <p className="muted" style={{ marginTop: 0 }}>Adicione ao <code>~/.codex/config.toml</code>:</p>
+                <p className="muted" style={{ marginTop: 0 }}>Adicione ao <code>~/.codex/config.toml</code> e abra o Codex de novo. O <code>tool_timeout_sec</code> é importante: esperar um subagente pode levar minutos.</p>
                 <pre className="block mono">{codexToml()}</pre>
               </>
             )}
@@ -480,7 +492,7 @@ function detail(e: Ev) {
   if (!d) return ''
   if (d.error) return d.error
   if (d.cost_cents != null) return `${d.secs}s · ${usd(d.cost_cents, 4)}`
-  if (d.instance_type) return `${d.engine} · ${d.ram_gb} GB · ${d.instance_type}`
+  if (d.instance_type) return `${viaLabel(d.client)} → ${engineLabel(d.engine)} · ${d.ram_gb} GB · ${d.instance_type}`
   if (d.client) return d.client
   if (d.gift_cents) return `crédito de boas-vindas ${usd(d.gift_cents)}`
   return ''

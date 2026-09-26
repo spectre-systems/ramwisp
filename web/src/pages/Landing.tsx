@@ -11,6 +11,24 @@ import { CopyCommand, Reveal } from '../components/ui'
 import '../landing.css'
 
 const ease = [0.16, 1, 0.3, 1] as const
+
+/** Instalação para quem usa Claude Code OU Codex: a pessoa escolhe a aba do agente que já usa. */
+function InstallTabs() {
+  const [tab, setTab] = useState<'claude' | 'codex'>('claude')
+  return (
+    <div className="itabs">
+      <div className="itabs-bar mono" role="tablist">
+        {(['claude', 'codex'] as const).map((k) => (
+          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{k === 'claude' ? 'Claude Code' : 'Codex'}</button>
+        ))}
+        <span className="dim">{tab === 'claude' ? 'no terminal' : 'em ~/.codex/config.toml'}</span>
+      </div>
+      {tab === 'claude'
+        ? <CopyCommand cmd={installCmd()} />
+        : <CopyCommand cmd={codexToml()} prompt="" />}
+    </div>
+  )
+}
 const Tag = ({ children, acc }: { children: string; acc?: boolean }) => <span className={`tag mono ${acc ? 'acc' : ''}`}>[ {children} ]</span>
 
 const SPECS: [string, string][] = [
@@ -49,7 +67,7 @@ export default function Landing() {
               <Link className="bx bx-acc" to="/criar-conta">Começar grátis</Link>
               <a className="bx" href="#como">Como funciona</a>
             </div>
-            <div className="hero-cmd"><CopyCommand cmd={installCmd()} /></div>
+            <div className="hero-cmd"><InstallTabs /></div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.15, ease }}>
             <ProductDemo />
@@ -165,10 +183,9 @@ export default function Landing() {
           <Reveal><Tag>Começar</Tag><h2 className="display-2">Um comando.<br /><span className="dim-2">Um clique no navegador.</span></h2></Reveal>
           <Reveal delay={0.05}>
             <div className="steps-pro">
-              <div className="st"><span className="mono acc">01</span><b>Adicione o MCP</b><CopyCommand cmd={installCmd()} />
-                <details className="codex-details"><summary className="mono">USA CODEX?</summary><pre className="block mono">{codexToml()}</pre></details></div>
+              <div className="st"><span className="mono acc">01</span><b>Adicione o MCP no seu agente</b><InstallTabs /></div>
               <div className="st"><span className="mono acc">02</span><b>Aprove no navegador</b><p>Na primeira vez o MCP abre uma página. Crie a conta ou entre e clique em autorizar.</p></div>
-              <div className="st"><span className="mono acc">03</span><b>Peça ao seu agente</b><p>“Roda os testes de cada pacote em subagentes ramwisp com 8 GB.”</p></div>
+              <div className="st"><span className="mono acc">03</span><b>Peça ao seu agente</b><p>“Roda os testes de cada pacote em subagentes ramwisp com 8 GB.” Funciona igual no Claude Code e no Codex, e cada subagente pode rodar com qualquer um dos dois.</p></div>
             </div>
           </Reveal>
         </div>

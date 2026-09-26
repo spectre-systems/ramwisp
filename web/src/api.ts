@@ -20,7 +20,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
 export type Tier = { ram_gb: number; available: boolean; instance_type?: string; rate_cents_h?: number };
 export type Me = { id: string; email: string; name: string; credit_cents: number; is_admin: boolean; tiers: Tier[] };
 export type Job = {
-  id: string; label: string | null; engine: 'claude' | 'codex'; ram_gb: number; timeout_s: number; status: string;
+  id: string; label: string | null; engine: 'claude' | 'codex'; client: string | null; ram_gb: number; timeout_s: number; status: string;
   instance_type: string; enclave_mem_mib: number; enclave_cpus: number; mem_used_mib: number | null;
   mem_total_mib: number | null; peak_mem_mib: number | null; exit_code: number | null; duration_s: number | null;
   egress: Record<string, number>; error: string | null; cost_cents: number | null; hold_cents: number;
@@ -65,3 +65,14 @@ export function dur(s: number | null | undefined) {
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}min ${Math.round(s % 60)}s` : `${Math.floor(m / 60)}h ${m % 60}min`;
 }
+
+/** Nome amigável de quem pediu o subagente (clientInfo do MCP). */
+export function viaLabel(client: string | null | undefined) {
+  const c = (client ?? '').toLowerCase()
+  if (!c) return '—'
+  if (c.includes('claude')) return 'Claude Code'
+  if (c.includes('codex')) return 'Codex'
+  if (c === 'cli') return 'CLI'
+  return client as string
+}
+export const engineLabel = (e: string) => (e === 'codex' ? 'Codex' : 'Claude')

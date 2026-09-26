@@ -179,7 +179,8 @@ app.get("/api/jobs", requireUser, (c) => {
 });
 
 app.post("/api/jobs", requireUser, async (c) => {
-  const j = createJob(c.get("user").id, c.get("tokenId"), await c.req.json().catch(() => ({})));
+  const client = (c.req.header("x-wisp-client") ?? "").replace(/[^\w .@/-]/g, "").slice(0, 60) || null;
+  const j = createJob(c.get("user").id, c.get("tokenId"), await c.req.json().catch(() => ({})), client);
   return c.json(publicJob(j), 201);
 });
 
@@ -193,6 +194,12 @@ app.get("/api/jobs/:id", requireUser, (c) => {
   const j = ownJob(c);
   return c.json({ ...publicJob(j), nonce: j.nonce, attestation: j.attestation,
     output: j.output_sealed ? JSON.parse(j.output_sealed) : null });
+});
+
+app.get("/api/jobs/:id/events", requireUser, (c) => {
+  const j = ownJob(c);
+  const rows = db.prepare("SELECT at, kind, detail FROM events WHERE job_id = ? ORDER BY id").all(j.id) as any[];
+  return c.json(rows.map((r) => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : null })));
 });
 
 app.post("/api/jobs/:id/input", requireUser, async (c) => {

@@ -14,7 +14,7 @@ export type Job = Record<string, any>;
 export function publicJob(j: Job) {
   const meta = j.meta ? JSON.parse(j.meta) : null;
   return {
-    id: j.id, label: j.label, engine: j.engine, ram_gb: j.ram_gb, timeout_s: j.timeout_s, status: j.status,
+    id: j.id, label: j.label, engine: j.engine, client: j.client ?? null, ram_gb: j.ram_gb, timeout_s: j.timeout_s, status: j.status,
     instance_type: j.instance_type, enclave_mem_mib: j.enclave_mem_mib, enclave_cpus: j.enclave_cpus,
     mem_used_mib: j.mem_used_mib, mem_total_mib: j.mem_total_mib, peak_mem_mib: j.peak_mem_mib ?? meta?.peak_mem_mib,
     exit_code: meta?.exit_code ?? null, duration_s: meta?.duration_s ?? null,
@@ -30,7 +30,7 @@ export class HttpError extends Error {
   constructor(status: number, msg: string) { super(msg); this.status = status; }
 }
 
-export function createJob(userId: string, tokenId: string | null, b: any) {
+export function createJob(userId: string, tokenId: string | null, b: any, client: string | null = null) {
   if (config.launcher === "ec2" && !config.artifactBucket) {
     throw new HttpError(503, "a capacidade na nuvem ainda está sendo liberada; tente de novo mais tarde");
   }
@@ -53,13 +53,13 @@ export function createJob(userId: string, tokenId: string | null, b: any) {
   const id = "wp-" + randomBytes(4).toString("hex");
   const jobToken = randomBytes(32).toString("base64url");
   db.prepare(`INSERT INTO jobs (id, user_id, token_id, label, engine, ram_gb, timeout_s, status, instance_type,
-      enclave_mem_mib, enclave_cpus, rate_cents_h, hold_cents, nonce, job_token_hash, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?)`)
+      enclave_mem_mib, enclave_cpus, rate_cents_h, hold_cents, nonce, job_token_hash, created_at, client)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(id, userId, tokenId, b.label ? String(b.label).slice(0, 80) : null, engine, ram, timeout, inst.type,
-      inst.enclaveMem, inst.enclaveCpus, inst.rateCentsHour, hold, nonce, sha256(jobToken), now());
+      inst.enclaveMem, inst.enclaveCpus, inst.rateCentsHour, hold, nonce, sha256(jobToken), now(), client);
   credit(userId, -hold, "reserva", id);
   pendingTokens.set(id, jobToken);
-  event(userId, id, "job.created", { engine, ram_gb: ram, instance_type: inst.type });
+  event(userId, id, "job.created", { engine, ram_gb: ram, instance_type: inst.type, client });
   tick().catch((e) => console.error("tick", e));
   return getJob(id)!;
 }

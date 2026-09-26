@@ -36,10 +36,14 @@ export function logout() {
   if (existsSync(CRED)) rmSync(CRED);
 }
 
+let client = "cli";
+/** Quem está usando o MCP (vem do clientInfo do initialize: "claude-code", "codex-mcp-client"…). */
+export function setClient(name) { if (name) client = String(name).slice(0, 60); }
+
 export async function call(method, path, body, { token = getToken(), timeoutMs = 30_000 } = {}) {
   const r = await fetch(API + path, {
     method,
-    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: { "Content-Type": "application/json", "X-Wisp-Client": client, ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(timeoutMs),
   });

@@ -160,3 +160,10 @@
 
 .step-timer { display: block; height: 2px; background: var(--line-2); margin-top: 10px; overflow: hidden; }
 .step-timer i { display: block; height: 100%; background: var(--acc); transform-origin: left; }
+
+.itabs { display: grid; gap: 0; }
+.itabs-bar { display: flex; align-items: center; gap: 0; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+.itabs-bar button { padding: 8px 14px; border: 1px solid var(--line-2); border-bottom: 0; background: transparent; color: var(--faint); cursor: pointer; font: inherit; margin-right: -1px; }
+.itabs-bar button.on { color: #000; background: var(--acc); border-color: var(--acc); }
+.itabs-bar .dim { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 12px; }
+.itabs .cmd code { white-space: pre; }
