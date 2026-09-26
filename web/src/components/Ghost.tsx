@@ -11,8 +11,7 @@ export function Ghost({ mood = 'calm', size = 44, hue = 0, className }: { mood?:
 export function Wordmark({ size = 22 }: { size?: number }) {
   return (
     <span className="wordmark" style={{ fontSize: size }}>
-      <img src="/mark.svg" alt="" className="wm-mark mark-dark" />
-      <img src="/mark-light.svg" alt="" className="wm-mark mark-light" />
+      <PixelGhost mood="calm" size={Math.round(size * 1.3)} hue={0} className="wm-mark" />
       <span><span className="wm-ram">ram</span>wisp</span>
     </span>
   )

@@ -102,7 +102,7 @@ function face(px: Px[][], mood: Mood, frame: number) {
 }
 
 const cache = new Map<string, HTMLCanvasElement>()
-function frameCanvas(mood: Mood, frame: number, tint: number) {
+export function spriteCanvas(mood: Mood, frame: number, tint: number) {
   const key = `${mood}:${frame}:${tint}`
   let c = cache.get(key)
   if (c) return c
@@ -134,7 +134,7 @@ export function PixelGhost({ mood = 'calm', size = 48, hue = 0, animate = true, 
       ctx.clearRect(0, 0, cv.width, cv.height)
       // flutua em degraus de 1 pixel do sprite (0, -1, -2, -1)
       const bob = mood === 'sad' ? [0, 0, 1, 0][tick % 4] : [0, -1, -2, -1][tick % 4]
-      ctx.drawImage(frameCanvas(mood, f, hue), 0, (2 + bob) * scale, W * scale, H * scale)
+      ctx.drawImage(spriteCanvas(mood, f, hue), 0, (2 + bob) * scale, W * scale, H * scale)
     }
     const loop = (t: number) => {
       raf = requestAnimationFrame(loop)

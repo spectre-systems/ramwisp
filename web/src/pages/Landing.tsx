@@ -5,7 +5,7 @@ import { api, codexToml, installCmd, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
 import { HeroStory } from '../components/HeroStory'
 import { ControlPreview, Evaporate, KeyVault, TerminalDemo } from '../components/Sections'
-import { WispField } from '../components/WispField'
+import { PixelSky } from '../components/PixelSky'
 import { CopyCommand, Reveal } from '../components/ui'
 
 const ease = [0.16, 1, 0.3, 1] as const
@@ -24,13 +24,12 @@ export default function Landing() {
   const brl = (usd?: number) => (usd ? `US$ ${usd.toFixed(2).replace('.', ',')}` : '—')
 
   return (
-    <div className="grain">
+    <div className="px-page">
+      <PixelSky />
       <Nav />
 
       {/* 1 · O que é isso? É comigo? — problema e solução na primeira tela */}
       <section className="hero2">
-        <WispField density={0.8} />
-        <div className="hero-fade" />
         <div className="wrap hero2-grid">
           <div>
             <motion.span className="eyebrow" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease }}>

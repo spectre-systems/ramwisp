@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useInView } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Ghost } from './Ghost'
 import { RamBar } from './ui'
+import { PixelIcon } from './PixelIcon'
 
 /** Roda um ciclo de passos só enquanto o bloco está na tela. */
 function useSteps(n: number, ms: number) {
@@ -77,9 +78,9 @@ export function KeyVault() {
         <div className="vault-side">
           <span className="faint mono small">seu computador</span>
           <div className="vault-items">
-            <span className="chip-k">🔑 login ou chave</span>
-            <span className="chip-k">📁 seu projeto</span>
-            <span className="chip-k">✍️ a tarefa</span>
+            <span className="chip-k"><PixelIcon name="key" accent="#f6c85f" /> login ou chave</span>
+            <span className="chip-k"><PixelIcon name="folder" accent="#9ff0ff" /> seu projeto</span>
+            <span className="chip-k"><PixelIcon name="note" accent="#cdbdff" /> a tarefa</span>
           </div>
           <motion.div className="check-seal" animate={{ opacity: step >= 1 ? 1 : 0.25 }}>
             {step >= 1 ? '✓' : '…'} o MCP confere o lacre da máquina antes de mandar
@@ -88,13 +89,13 @@ export function KeyVault() {
 
         <div className="vault-path">
           <motion.div className="envelope" animate={{ x: step >= 2 ? '100%' : '0%', opacity: sealed ? 1 : 0.3 }} transition={{ duration: 1.1, ease: 'easeInOut' }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+            <PixelIcon name="lock" size={32} color="#0a3a44" accent="var(--wisp)" />
           </motion.div>
           <div className="path-line" />
           <div className="observers">
             {['servidor ramwisp', 'AWS', 'alguém espiando'].map((o) => (
               <div key={o} className="observer">
-                <span className="eye">👁</span>
+                <span className="eye"><PixelIcon name="eye" size={16} color="var(--muted)" accent="var(--err)" /></span>
                 <span className="small faint">{o} vê:</span>
                 {step >= 2 ? <Scrambled len={o.length > 10 ? 14 : 10} /> : <span className="mono faint">—</span>}
               </div>
