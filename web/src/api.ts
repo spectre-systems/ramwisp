@@ -48,8 +48,8 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export const origin = () => window.location.origin;
-export const installCmd = () => `claude mcp add --scope user wisp -- npx -y ${origin()}/wisp.tgz`;
-export const codexToml = () => `[mcp_servers.wisp]\ncommand = "npx"\nargs = ["-y", "${origin()}/wisp.tgz"]\ntool_timeout_sec = 1000`;
+export const installCmd = () => 'claude mcp add --scope user ramwisp -- npx -y ramwisp@latest';
+export const codexToml = () => '[mcp_servers.ramwisp]\ncommand = "npx"\nargs = ["-y", "ramwisp@latest"]\ntool_timeout_sec = 1000';
 
 export function ago(ms: number) {
   const s = Math.round((Date.now() - ms) / 1000);

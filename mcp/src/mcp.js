@@ -4,7 +4,7 @@ import { API, getToken, startLogin } from "./account.js";
 import { LoginRequired, killAgent, listAgents, result, spawnAgent, waitAgent } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.0";
+const VERSION = "0.1.2";
 
 const INSTRUCTIONS = `wisp roda subagentes Claude Code ou Codex em máquinas efêmeras na nuvem, com a RAM que você pedir,
 sem pesar esta máquina. Cada subagente nasce numa enclave isolada (AWS Nitro): antes de mandar qualquer coisa,
@@ -100,7 +100,7 @@ export function serve() {
       let res;
       if (method === "initialize") {
         const v = PROTOCOLS.includes(params?.protocolVersion) ? params.protocolVersion : PROTOCOLS[0];
-        res = { protocolVersion: v, capabilities: { tools: {} }, serverInfo: { name: "wisp", version: VERSION }, instructions: INSTRUCTIONS };
+        res = { protocolVersion: v, capabilities: { tools: {} }, serverInfo: { name: "ramwisp", version: VERSION }, instructions: INSTRUCTIONS };
       } else if (method === "tools/list") {
         res = { tools: TOOLS };
       } else if (method === "ping") {

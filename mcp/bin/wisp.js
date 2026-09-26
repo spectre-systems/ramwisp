@@ -46,8 +46,8 @@ async function main() {
     case "kill": return out(await killAgent(rest[0]));
     case "ls": return out(await listAgents());
     case "setup":
-      return console.log(`Claude Code:\n  claude mcp add --scope user wisp -- npx -y ${API}/wisp.tgz\n\n` +
-        `Codex (~/.codex/config.toml):\n  [mcp_servers.wisp]\n  command = "npx"\n  args = ["-y", "${API}/wisp.tgz"]\n  tool_timeout_sec = 1000`);
+      return console.log(`Claude Code:\n  claude mcp add --scope user ramwisp -- npx -y ramwisp@latest\n\n` +
+        `Codex (~/.codex/config.toml):\n  [mcp_servers.ramwisp]\n  command = "npx"\n  args = ["-y", "ramwisp@latest"]\n  tool_timeout_sec = 1000`);
     default: return console.log(HELP);
   }
 }

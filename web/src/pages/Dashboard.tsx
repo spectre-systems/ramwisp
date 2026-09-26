@@ -354,7 +354,7 @@ function Connect() {
       <div className="card" style={{ marginTop: 16 }}>
         <h3 style={{ margin: '0 0 6px', fontSize: 16 }}>Prefere um token fixo?</h3>
         <p className="muted" style={{ margin: '0 0 12px', fontSize: 14 }}>Para CI ou máquinas sem navegador: crie um token em <Link to="/painel/tokens" style={{ color: 'var(--wisp)' }}>Tokens</Link> e passe como <code>WISP_TOKEN</code>.</p>
-        <CopyCommand cmd={`claude mcp add --scope user wisp -e WISP_TOKEN=wsp_… -- npx -y ${window.location.origin}/wisp.tgz`} />
+        <CopyCommand cmd={'claude mcp add --scope user ramwisp -e WISP_TOKEN=wsp_… -- npx -y ramwisp@latest'} />
       </div>
     </>
   )

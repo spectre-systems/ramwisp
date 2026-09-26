@@ -1,11 +1,32 @@
 {
-  "name": "wisp-mcp",
-  "version": "0.1.0",
-  "description": "MCP do wisp: subagentes Claude/Codex com RAM sob demanda em enclaves efêmeras",
+  "name": "ramwisp",
+  "version": "0.1.2",
+  "description": "ramwisp: subagentes do Claude Code e do Codex em máquinas próprias na nuvem (AWS Nitro Enclaves), com a sua assinatura. MCP + CLI.",
   "type": "module",
-  "bin": { "wisp": "bin/wisp.js" },
-  "files": ["bin", "src", "nitro-root-g1.pem", "pcrs.json"],
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test test/" },
-  "license": "UNLICENSED"
+  "bin": {
+    "ramwisp": "bin/wisp.js",
+    "wisp": "bin/wisp.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "nitro-root-g1.pem",
+    "pcrs.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "mcp",
+    "claude-code",
+    "codex",
+    "subagents",
+    "nitro-enclaves"
+  ],
+  "homepage": "https://ramwisp.duckdns.org"
 }
