@@ -11,10 +11,15 @@ import { engineCredential } from "./creds.js";
 export const FINAL = ["done", "failed", "killed", "expired"];
 const sealers = new Map();          // id -> Promise (selagem em andamento neste processo)
 const sealErrors = new Map();
+const collecting = new Map();       // id -> Promise (abertura em andamento: duas chamadas juntas não disputam a chave)
 
 export class LoginRequired extends Error {}
 
 const keyFile = (id) => join(ensureDir("jobs"), `${id}.json`);
+// Cópia local do resultado já aberto: uma espera em segundo plano pode recolher o resultado e a resposta dela
+// nunca chegar ao agente; com a cópia, a próxima chamada devolve o mesmo resultado em vez de "already collected".
+export const RESULT_TTL_MS = 7 * 86400_000;
+const resultFile = (id) => join(ensureDir("results"), `${id}.json`);
 const MAX_WORKSPACE = 15 * 1024 * 1024;       // compactado
 const SKIP_DIRS = new Set(["node_modules", ".git", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target", ".cache"]);
 
@@ -126,22 +131,53 @@ function parseOutput(stdout) {
   }
 }
 
-/** Resultado final (e apaga a chave local e a saída cifrada no servidor), ou o status se ainda roda. */
+function cachedResult(id) {
+  try {
+    const f = resultFile(id);
+    if (Date.now() - statSync(f).mtimeMs > RESULT_TTL_MS) { rmSync(f, { force: true }); return null; }
+    return JSON.parse(readFileSync(f, "utf8"));
+  } catch { return null; }
+}
+
+/** Apaga cópias locais com mais de 7 dias (melhor esforço). */
+export function pruneResults() {
+  try {
+    const d = ensureDir("results");
+    for (const n of readdirSync(d)) {
+      const f = join(d, n);
+      if (Date.now() - statSync(f).mtimeMs > RESULT_TTL_MS) rmSync(f, { force: true });
+    }
+  } catch { /* sem pasta ainda */ }
+}
+
+/**
+ * Resultado final, ou o status se ainda roda. Ao abrir, guarda uma cópia local (0600, 7 dias), avisa o servidor
+ * (que apaga a saída cifrada) e apaga a chave. Chamadas seguintes devolvem a cópia, na mesma sessão ou em outra.
+ */
 export async function result(id) {
+  const cached = cachedResult(id);
+  if (cached) return { ...cached, from_local_copy: true };
+  if (collecting.has(id)) return collecting.get(id);
+  const p = fetchResult(id).finally(() => collecting.delete(id));
+  collecting.set(id, p);
+  return p;
+}
+
+async function fetchResult(id) {
   const j = await call("GET", `/api/jobs/${id}`);
   const meta = { id, status: j.status, ram_gb: j.ram_gb, peak_mem_mib: j.peak_mem_mib, cost_usd: j.cost_cents != null ? +(j.cost_cents / 100).toFixed(4) : null };
   if (sealErrors.has(id)) return { ...meta, status: "failed", error: `refused for security: ${sealErrors.get(id)}` };
   if (!FINAL.includes(j.status)) return { ...meta, mem_used_mib: j.mem_used_mib };
   if (j.status !== "done" || !j.output) {
     rmSync(keyFile(id), { force: true });
-    return { ...meta, error: j.error ?? (j.collected_at ? "result was already collected" : j.status) };
+    return { ...meta, error: j.error ?? (j.collected_at
+      ? `result was already collected on another machine (it is kept only where it was opened, in ${ensureDir("results")})`
+      : j.status) };
   }
   const f = keyFile(id);
   if (!existsSync(f)) return { ...meta, error: "the key to open this result is not on this machine" };
   const k = JSON.parse(readFileSync(f, "utf8"));
   const out = JSON.parse(openOutput(importKey(k.priv), Buffer.from(k.enclave_pub, "base64"), Buffer.from(k.nonce, "base64"), j.output).toString());
-  await call("POST", `/api/jobs/${id}/collected`).catch(() => {});
-  rmSync(f, { force: true });
   const parsed = parseOutput(out.stdout ?? "");
   const res = { ...parsed, ...meta, exit_code: out.exit_code, duration_s: out.duration_s };
   if (out.exit_code === 124) res.error = "timeout";
@@ -158,6 +194,11 @@ export async function result(id) {
     res.patch_stat = out.patch_stat;
   }
   if (out.exit_code !== 0 && out.stderr_tail) res.stderr_tail = out.stderr_tail.slice(-1500);
+  // a cópia vem ANTES de avisar o servidor e apagar a chave: se algo cair no meio, o resultado não se perde
+  writeSecret(resultFile(id), JSON.stringify(res));
+  await call("POST", `/api/jobs/${id}/collected`).catch(() => {});
+  rmSync(f, { force: true });
+  pruneResults();
   return res;
 }
 

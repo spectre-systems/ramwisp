@@ -4,7 +4,7 @@ import { API, getToken, setClient, startLogin } from "./account.js";
 import { LoginRequired, killAgent, listAgents, result, spawnAgent, waitAgent } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.6";
+const VERSION = "0.1.7";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
@@ -21,11 +21,14 @@ How to use it well:
   Without workspace the machine starts empty: put all context in the mission. It has internet (HTTPS) but no git/SSH access of the user.
 - A machine takes ~1-3 min to start; wait_agent waits up to 15 min per call (call it again if it returns running).
 - Always collect with wait_agent or agent_result: the answer can only be decrypted on this machine.
+  Once opened, the result stays readable here for 7 days: calling wait_agent/agent_result again returns the same answer,
+  so a wait that ran in the background never loses it. While running, only status, RAM and cost are visible.
 - Each subagent uses ramwisp credit (the machine) and the user's subscription/key (the model). Don't launch dozens.
 - If a response says the user needs to sign in, show them the link.`;
 
 const TOOLS = [
-  { name: "spawn_agent", description: "Launch an ephemeral subagent on a machine with the requested RAM and return its id right away.",
+  { name: "spawn_agent", annotations: { title: "Launch a subagent", readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    description: "Launch an ephemeral subagent on a machine with the requested RAM and return its id right away.",
     inputSchema: { type: "object", required: ["mission"], properties: {
       mission: { type: "string", description: "Complete, self-contained task with all the context it needs." },
       engine: { type: "string", enum: ["claude", "codex"], default: "claude" },
@@ -37,14 +40,18 @@ const TOOLS = [
         description: "login = the user's subscription on this machine; key = API key from env; auto = key if present." },
       workspace: { type: "string", description: "Path to a directory/repo ON THIS MACHINE to send along. An encrypted copy is sent (in git: tracked files + new non-ignored files; never anything in .gitignore). The subagent works in ~/work and changes come back as a patch (patch_file + apply command). Max 15 MB compressed." },
       label: { type: "string", description: "Short label VISIBLE in the dashboard (don't put anything sensitive)." } } } },
-  { name: "wait_agent", description: "Wait for the subagent to finish and return the result (field result = the answer).",
+  { name: "wait_agent", annotations: { title: "Wait for a subagent's result", readOnlyHint: true, openWorldHint: false },
+    description: "Wait for the subagent to finish and return the result (field result = the answer). Safe to call again: a result already opened on this machine is returned again.",
     inputSchema: { type: "object", required: ["id"], properties: {
       id: { type: "string" }, max_wait_s: { type: "integer", default: 900, maximum: 1800 } } } },
-  { name: "agent_result", description: "Result without waiting: returns the answer or the current status (running, RAM in use).",
+  { name: "agent_result", annotations: { title: "Read a subagent's result", readOnlyHint: true, openWorldHint: false },
+    description: "Result without waiting: returns the answer or the current status (running, RAM in use).",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
-  { name: "kill_agent", description: "Kill the subagent and destroy its machine immediately.",
+  { name: "kill_agent", annotations: { title: "Kill a subagent", readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    description: "Kill the subagent and destroy its machine immediately.",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
-  { name: "list_agents", description: "Balance, available RAM sizes and subagents that are running or have results to collect.",
+  { name: "list_agents", annotations: { title: "List subagents and balance", readOnlyHint: true, openWorldHint: false },
+    description: "Balance, available RAM sizes and subagents that are running or have results to collect.",
     inputSchema: { type: "object", properties: {} } },
   { name: "wisp_login", description: "Connect this MCP to the user's ramwisp account (opens the browser).",
     inputSchema: { type: "object", properties: {} } },
