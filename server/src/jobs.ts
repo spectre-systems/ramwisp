@@ -48,7 +48,7 @@ export function createJob(userId: string, tokenId: string | null, b: any, client
   const user = db.prepare("SELECT credit_cents FROM users WHERE id = ?").get(userId) as { credit_cents: number };
   if (user.credit_cents < hold) {
     throw new HttpError(402, `insufficient credit: needs a $${(hold / 100).toFixed(2)} hold, ` +
-      `balance is $${(user.credit_cents / 100).toFixed(2)} (lower timeout_s or ram_gb)`);
+      `balance is $${(user.credit_cents / 100).toFixed(2)} (lower timeout_s or ram_gb, or add credit at ${config.publicUrl}/painel/extrato)`);
   }
   const id = "wp-" + randomBytes(4).toString("hex");
   const jobToken = randomBytes(32).toString("base64url");

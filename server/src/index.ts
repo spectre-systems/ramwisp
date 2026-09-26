@@ -10,6 +10,7 @@ import {
 } from "./auth.ts";
 import { config, INSTANCE_TYPES, RAM_TIERS, pickInstance } from "./config.ts";
 import { credit, db, event, kvGet, kvSet, now } from "./db.ts";
+import { TOPUP_OPTIONS_USD, createCheckout, handleEvent, paymentStatus, stripeEnabled, verifyWebhook } from "./stripe.ts";
 import { ACTIVE, FINAL, HttpError, type Job, createJob, finish, getJob, publicJob, setStatus, startLoops, tick } from "./jobs.ts";
 
 const app = new Hono<{ Variables: AuthVars & { job: Job } }>();
@@ -160,6 +161,39 @@ app.get("/api/events", requireUser, (c) => {
   const rows = db.prepare("SELECT job_id, at, kind, detail FROM events WHERE user_id = ? ORDER BY id DESC LIMIT ?")
     .all(c.get("user").id, limit) as any[];
   return c.json(rows.map((r) => ({ ...r, detail: r.detail ? JSON.parse(r.detail) : null })));
+});
+
+// ---------------------------------------------------------------- pagamento (Stripe Checkout, crédito pré-pago)
+
+app.get("/api/billing/options", (c) => c.json({ enabled: stripeEnabled(), amounts_usd: TOPUP_OPTIONS_USD }));
+
+app.post("/api/billing/checkout", requireUser, async (c) => {
+  if (!stripeEnabled()) return c.json({ error: "payments are not enabled yet" }, 503);
+  const b = await c.req.json().catch(() => ({}));
+  try {
+    const url = await createCheckout(c.get("user"), Number(b.amount_usd));
+    return c.json({ url });
+  } catch (e: any) {
+    console.error("stripe checkout", e);
+    return c.json({ error: e?.message ?? "could not start checkout" }, 400);
+  }
+});
+
+app.get("/api/billing/session/:id", requireUser, (c) => {
+  const p = paymentStatus(c.get("user").id, c.req.param("id"));
+  return p ? c.json(p) : c.json({ error: "not found" }, 404);
+});
+
+app.post("/api/stripe/webhook", async (c) => {
+  const raw = await c.req.text();
+  if (!verifyWebhook(raw, c.req.header("stripe-signature"))) return c.json({ error: "bad signature" }, 400);
+  try {
+    const r = handleEvent(JSON.parse(raw));
+    return c.json({ received: true, result: r });
+  } catch (e) {
+    console.error("stripe webhook", e);
+    return c.json({ error: "handler failed" }, 500);                // a Stripe tenta de novo
+  }
 });
 
 app.get("/api/ledger", requireUser, (c) => c.json(db.prepare(

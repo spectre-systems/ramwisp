@@ -284,3 +284,12 @@
 .joblog-row { display: grid; grid-template-columns: 84px 56px minmax(140px, 220px) 1fr; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); }
 .joblog-row:first-child { border-top: 0; }
 @media (max-width: 700px) { .joblog-row { grid-template-columns: 70px 44px 1fr; } .joblog-row > :last-child { grid-column: 1 / -1; } }
+
+.topup { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; }
+@media (max-width: 760px) { .topup { grid-template-columns: minmax(0, 1fr); } }
+.topup-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.topup-btn { min-width: 76px; height: 44px; font-size: 15px; }
+.topup-btn:not(:disabled):hover { background: var(--acc); color: #000; border-color: var(--acc); }
+.pay-msg { display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.pay-msg.ok { border-color: var(--ok); color: var(--ok); }
+.pay-msg.err { border-color: var(--err); color: var(--err); }

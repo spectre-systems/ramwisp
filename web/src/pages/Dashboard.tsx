@@ -427,11 +427,52 @@ function Tokens() {
 
 function Statement() {
   const rows = usePoll<Ledger[]>('/api/ledger', 10000)
-  const { me } = useSession()
+  const reloadRows = rows.reload                          // estável (useCallback); o objeto rows muda a cada render
+  const { me, refresh } = useSession()
+  const [params, setParams] = useSearchParams()
+  const [opts, setOpts] = useState<{ enabled: boolean; amounts_usd: number[] } | null>(null)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'wait' | 'err'; text: string } | null>(null)
+  useEffect(() => { api<{ enabled: boolean; amounts_usd: number[] }>('GET', '/api/billing/options').then(setOpts).catch(() => {}) }, [])
+  // voltando da Stripe: espera o webhook creditar (normalmente segundos)
+  useEffect(() => {
+    const sid = params.get('paid')
+    if (params.get('canceled')) { setMsg({ kind: 'err', text: 'Checkout canceled. Nothing was charged.' }); setParams({}, { replace: true }); return }
+    if (!sid) return
+    setMsg({ kind: 'wait', text: 'Payment received by Stripe — adding the credit to your balance…' })
+    let tries = 0
+    const t = setInterval(async () => {
+      tries++
+      const p = await api<{ status: string; cents: number }>('GET', `/api/billing/session/${sid}`).catch(() => null)
+      if (p?.status === 'paid') {
+        clearInterval(t); await refresh(); reloadRows()
+        setMsg({ kind: 'ok', text: `${usd(p.cents)} added to your balance. Thank you!` }); setParams({}, { replace: true })
+      } else if (tries > 40) { clearInterval(t); setMsg({ kind: 'wait', text: 'Still waiting for Stripe to confirm. The credit appears here as soon as it does.' }) }
+    }, 1500)
+    return () => clearInterval(t)
+  }, [params, refresh, reloadRows, setParams])
+  const buy = async (amount: number) => {
+    setBusy(amount); setMsg(null)
+    try { const r = await api<{ url: string }>('POST', '/api/billing/checkout', { amount_usd: amount }); window.location.href = r.url }
+    catch (e) { setMsg({ kind: 'err', text: e instanceof ApiError ? e.message : 'could not start checkout' }); setBusy(null) }
+  }
   return (
     <>
       <div className="page-h"><div><span className="eyebrow">credit</span><h1>Billing</h1></div><div className="card" style={{ padding: '10px 18px' }}>Balance <strong>{usd(me?.credit_cents)}</strong></div></div>
-      <p className="muted" style={{ marginTop: -10 }}>Each subagent reserves the most it can cost and refunds the rest when it finishes. Billed per second, 60 s minimum.</p>
+      {msg && <div className={`card pay-msg ${msg.kind}`} style={{ marginBottom: 14 }}>{msg.kind === 'wait' && <Spinner />} {msg.text}</div>}
+      <div className="card topup">
+        <div>
+          <h3 style={{ margin: '0 0 4px', fontSize: 18 }}>Add credit</h3>
+          <p className="muted" style={{ margin: 0, fontSize: 14 }}>Prepaid machine time. Pay by card, Apple Pay or Google Pay on Stripe’s secure page — we never see your card.</p>
+        </div>
+        <div className="topup-btns">
+          {(opts?.amounts_usd ?? [10, 25, 50, 100]).map((a) => (
+            <button key={a} className="btn topup-btn" disabled={!opts?.enabled || busy !== null} onClick={() => buy(a)}>{busy === a ? <Spinner /> : `$${a}`}</button>
+          ))}
+        </div>
+        {opts && !opts.enabled && <p className="faint" style={{ margin: 0, fontSize: 13, gridColumn: '1 / -1' }}>Card payments are being enabled. Your free credit works in the meantime.</p>}
+      </div>
+      <p className="muted" style={{ margin: '18px 0 10px' }}>Each subagent reserves the most it can cost and refunds the rest when it finishes. Billed per second, 60 s minimum.</p>
       <div className="card" style={{ padding: 10 }}>
         <div className="table-wrap">
           <table className="table">
@@ -489,6 +530,7 @@ function Activity() {
 
 /** Motivos do extrato (o servidor gravava em português; os novos já vêm em inglês). */
 function reasonLabel(r: string) {
+  if (r.startsWith('card top-up')) return r.replace('card top-up', 'Card top-up')
   if (r === 'reserva' || r === 'hold') return 'Hold (max cost)'
   if (r === 'devolução da reserva' || r === 'hold refund') return 'Hold refunded'
   if (r === 'crédito de boas-vindas' || r === 'welcome credit') return 'Welcome credit'

@@ -25,6 +25,8 @@ export const config = {
   enclaveOverheadMib: num(env.ENCLAVE_OVERHEAD_MIB, 3072),
   secureCookies: (env.PUBLIC_URL ?? "").startsWith("https://"),
   devImage: env.DEV_IMAGE ?? "wisp-enclave:dev",
+  stripeSecretKey: env.STRIPE_SECRET_KEY ?? "",
+  stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET ?? "",
 };
 
 /**
