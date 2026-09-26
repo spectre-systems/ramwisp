@@ -12,6 +12,8 @@ import { liveInstances } from "./launcher.ts";
 export const admin = new Hono<{ Variables: AuthVars }>();
 admin.use("*", requireUser, async (c, next) => {
   if (!c.get("user").is_admin) return c.json({ error: "admins only" }, 403);
+  // só login no navegador: um token de MCP (que fica salvo na máquina do agente) nunca abre o back office
+  if (c.get("via") !== "session") return c.json({ error: "admin requires a browser session" }, 403);
   await next();
 });
 
