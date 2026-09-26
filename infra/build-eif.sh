@@ -32,7 +32,7 @@ EOF
 )
 SUBNET=$(aws ec2 describe-subnets --filters Name=default-for-az,Values=true --query 'Subnets[0].SubnetId' --output text)
 ID=$(aws ec2 run-instances --image-id resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
-  --instance-type m7i.large --iam-instance-profile Name=wisp-builder --instance-initiated-shutdown-behavior terminate \
+  --instance-type ${BUILDER_TYPE:-m7i-flex.large} --iam-instance-profile Name=wisp-builder --instance-initiated-shutdown-behavior terminate \
   --metadata-options HttpTokens=required,HttpPutResponseHopLimit=2 --subnet-id "$SUBNET" \
   --block-device-mappings 'DeviceName=/dev/xvda,Ebs={VolumeSize=30,VolumeType=gp3,DeleteOnTermination=true,Encrypted=true}' \
   --tag-specifications 'ResourceType=instance,Tags=[{Key=project,Value=wisp-saas},{Key=Name,Value=wisp-eif-builder}]' \
