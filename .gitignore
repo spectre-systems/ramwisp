@@ -6,3 +6,5 @@ server/data/
 web/dist/
 .env
 *.eif
+.env.*
+!.env.example

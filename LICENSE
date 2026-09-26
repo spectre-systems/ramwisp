@@ -1,0 +1,19 @@
+ramwisp — licensing overview
+Copyright (c) 2026 Spectre Systems
+
+This repository contains two kinds of code under two licenses:
+
+  mcp/        Apache License 2.0           (see mcp/LICENSE)
+  enclave/    Apache License 2.0           (see enclave/LICENSE)
+  everything  ramwisp Sustainable Use      (see LICENSE-SUL.md)
+  else        License 1.0
+
+In short: the MCP client and the enclave image are fully open source, so anyone can audit the code that
+verifies the enclave attestation and rebuild the enclave image to check its published PCR0 hash.
+
+The rest (server, dashboard/site, host agent, infrastructure scripts, brand assets) is source-available:
+you may use and modify it for personal, non-commercial, or your own organization's internal use, but you
+may not sell it or offer it to third parties as a service. Spectre Systems, as the copyright holder,
+operates ramwisp commercially at https://ramwisp.com. For a commercial license, contact Spectre Systems.
+
+The name "ramwisp" and its logos are trademarks of Spectre Systems and are not licensed by either license.

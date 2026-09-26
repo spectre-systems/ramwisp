@@ -4,7 +4,7 @@ import { API, getToken, setClient, startLogin } from "./account.js";
 import { LoginRequired, killAgent, listAgents, result, spawnAgent, waitAgent } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.5";
+const VERSION = "0.1.6";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
