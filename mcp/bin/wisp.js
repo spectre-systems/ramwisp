@@ -8,38 +8,38 @@ const [cmd, ...rest] = process.argv.slice(2);
 const flag = (name, d) => { const i = rest.indexOf(`--${name}`); return i >= 0 ? rest[i + 1] : d; };
 const out = (x) => console.log(JSON.stringify(x, null, 2));
 
-const HELP = `wisp — subagentes com RAM sob demanda (${API})
+const HELP = `ramwisp — subagents with on-demand RAM (${API})
 
-  wisp login                         conecta esta máquina à sua conta (navegador)
-  wisp logout
-  wisp spawn "missão" [--ram 2] [--engine claude|codex] [--model M] [--auth auto|login|key] [--workspace DIR] [--wait]
-  wisp wait ID | result ID | kill ID
-  wisp ls
-  wisp setup                         mostra como adicionar o MCP ao Claude Code / Codex
+  ramwisp login                      connect this machine to your account (browser)
+  ramwisp logout
+  ramwisp spawn "task" [--ram 2] [--engine claude|codex] [--model M] [--auth auto|login|key] [--workspace DIR] [--wait]
+  ramwisp wait ID | result ID | kill ID
+  ramwisp ls
+  ramwisp setup                      how to add the MCP to Claude Code / Codex
 
-Sem argumentos roda o servidor MCP (stdio).`;
+With no arguments it runs the MCP server (stdio).`;
 
 async function main() {
   switch (cmd) {
     case undefined: case "mcp": return serve();
     case "login": {
-      if (getToken()) return console.log(`já conectado a ${API} (wisp logout para trocar)`);
+      if (getToken()) return console.log(`already connected to ${API} (ramwisp logout to switch)`);
       const l = await startLogin();
-      console.log(`${l.opened ? "Abri o navegador. Se não abriu, acesse" : "Abra"}: ${l.verification_uri_complete}\nCódigo: ${l.user_code}`);
+      console.log(`${l.opened ? "Opened your browser. If it didn't open, visit" : "Open"}: ${l.verification_uri_complete}\nCode: ${l.user_code}`);
       await l.done;
-      return console.log("conectado ✓");
+      return console.log("connected ✓");
     }
-    case "logout": logout(); return console.log("desconectado");
+    case "logout": logout(); return console.log("disconnected");
     case "spawn": {
       const r = await spawnAgent({ mission: rest[0], ram_gb: Number(flag("ram", 2)), engine: flag("engine", "claude"),
         model: flag("model"), auth: flag("auth", "auto"), timeout_s: Number(flag("timeout", 1800)), label: flag("label"), workspace: flag("workspace") });
       out(r);
-      console.error("esperando a máquina e a atestação para mandar a missão selada…");
+      console.error("waiting for the machine and its attestation to send the sealed task…");
       await sealed(r.id);
       const now = await result(r.id);
-      if (now.erro || ["failed", "killed", "expired"].includes(now.status)) { out(now); process.exit(1); }
+      if (now.error || ["failed", "killed", "expired"].includes(now.status)) { out(now); process.exit(1); }
       if (rest.includes("--wait")) return out(await waitAgent(r.id, 3600));
-      return console.error(`missão entregue. Recolha com: wisp wait ${r.id}`);
+      return console.error(`task delivered. Collect it with: ramwisp wait ${r.id}`);
     }
     case "wait": return out(await waitAgent(rest[0], Number(flag("max", 3600))));
     case "result": return out(await result(rest[0]));
@@ -52,4 +52,4 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error("erro:", e.message); process.exit(1); });
+main().catch((e) => { console.error("error:", e.message); process.exit(1); });

@@ -18,7 +18,7 @@ const ROOT = new URL("../..", import.meta.url).pathname;
 app.onError((e, c) => {
   if (e instanceof HttpError) return c.json({ error: e.message }, e.status as any);
   console.error(e);
-  return c.json({ error: "erro interno" }, 500);
+  return c.json({ error: "internal error" }, 500);
 });
 
 // ---------------------------------------------------------------- limite simples por IP
@@ -43,14 +43,14 @@ function startSession(c: any, userId: string) {
 }
 
 app.post("/api/auth/signup", async (c) => {
-  if (limited(c, "signup", 5, 3600_000)) return c.json({ error: "muitas tentativas, tente mais tarde" }, 429);
+  if (limited(c, "signup", 5, 3600_000)) return c.json({ error: "too many attempts, try again later" }, 429);
   const b = await c.req.json().catch(() => ({}));
   const email = String(b.email ?? "").trim().toLowerCase();
   const name = String(b.name ?? "").trim().slice(0, 80) || email.split("@")[0];
   const pw = String(b.password ?? "");
-  if (!emailOk(email)) return c.json({ error: "email inválido" }, 400);
-  if (pw.length < 8) return c.json({ error: "senha com pelo menos 8 caracteres" }, 400);
-  if (db.prepare("SELECT 1 FROM users WHERE email = ?").get(email)) return c.json({ error: "esse email já tem conta" }, 409);
+  if (!emailOk(email)) return c.json({ error: "invalid email" }, 400);
+  if (pw.length < 8) return c.json({ error: "password must be at least 8 characters" }, 400);
+  if (db.prepare("SELECT 1 FROM users WHERE email = ?").get(email)) return c.json({ error: "that email already has an account" }, 409);
   const id = randomId("usr_");
   const first = !(db.prepare("SELECT 1 FROM users LIMIT 1").get());
   db.prepare("INSERT INTO users (id, email, name, pass_hash, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?)")
@@ -60,7 +60,7 @@ app.post("/api/auth/signup", async (c) => {
   if (granted + config.signupCreditCents <= config.freePoolCents) {
     gift = config.signupCreditCents;
     kvSet("free_granted_cents", String(granted + gift));
-    credit(id, gift, "crédito de boas-vindas");
+    credit(id, gift, "welcome credit");
   }
   event(id, null, "account.created", { gift_cents: gift });
   startSession(c, id);
@@ -68,11 +68,11 @@ app.post("/api/auth/signup", async (c) => {
 });
 
 app.post("/api/auth/login", async (c) => {
-  if (limited(c, "login", 10, 600_000)) return c.json({ error: "muitas tentativas, espere alguns minutos" }, 429);
+  if (limited(c, "login", 10, 600_000)) return c.json({ error: "too many attempts, wait a few minutes" }, 429);
   const b = await c.req.json().catch(() => ({}));
   const u = db.prepare("SELECT id, pass_hash FROM users WHERE email = ?").get(String(b.email ?? "").trim().toLowerCase()) as
     { id: string; pass_hash: string } | undefined;
-  if (!u || !checkPassword(String(b.password ?? ""), u.pass_hash)) return c.json({ error: "email ou senha incorretos" }, 401);
+  if (!u || !checkPassword(String(b.password ?? ""), u.pass_hash)) return c.json({ error: "wrong email or password" }, 401);
   startSession(c, u.id);
   return c.json({ ok: true });
 });
@@ -88,7 +88,7 @@ const USER_CODE_ALPHABET = "BCDFGHJKLMNPQRSTVWXZ";
 const userCode = () => Array.from(randomBytes(8), (b, i) => (i === 4 ? "-" : "") + USER_CODE_ALPHABET[b % 20]).join("");
 
 app.post("/api/device/start", async (c) => {
-  if (limited(c, "device", 30, 3600_000)) return c.json({ error: "muitas tentativas" }, 429);
+  if (limited(c, "device", 30, 3600_000)) return c.json({ error: "too many attempts" }, 429);
   const b = await c.req.json().catch(() => ({}));
   const device = randomBytes(32).toString("base64url");
   const code = userCode();
@@ -111,7 +111,7 @@ app.post("/api/device/poll", async (c) => {
 app.get("/api/device/:code", requireUser, (c) => {
   const row = db.prepare("SELECT client_name, expires_at, user_id FROM device_codes WHERE user_code = ?")
     .get(c.req.param("code").toUpperCase()) as any;
-  if (!row || row.expires_at < now()) return c.json({ error: "código inválido ou expirado" }, 404);
+  if (!row || row.expires_at < now()) return c.json({ error: "invalid or expired code" }, 404);
   return c.json({ client_name: row.client_name, approved: !!row.user_id });
 });
 
@@ -119,8 +119,8 @@ app.post("/api/device/approve", requireUser, async (c) => {
   const b = await c.req.json().catch(() => ({}));
   const code = String(b.user_code ?? "").toUpperCase();
   const row = db.prepare("SELECT * FROM device_codes WHERE user_code = ?").get(code) as any;
-  if (!row || row.expires_at < now()) return c.json({ error: "código inválido ou expirado" }, 404);
-  if (row.user_id) return c.json({ error: "esse código já foi usado" }, 409);
+  if (!row || row.expires_at < now()) return c.json({ error: "invalid or expired code" }, 404);
+  if (row.user_id) return c.json({ error: "that code was already used" }, 409);
   const user = c.get("user");
   const tok = createApiToken(user.id, `${row.client_name} (${new Date().toISOString().slice(0, 10)})`);
   db.prepare("UPDATE device_codes SET user_id = ?, token = ? WHERE device_hash = ?").run(user.id, tok.raw, row.device_hash);
@@ -186,7 +186,7 @@ app.post("/api/jobs", requireUser, async (c) => {
 
 function ownJob(c: any): Job {
   const j = getJob(c.req.param("id"));
-  if (!j || j.user_id !== c.get("user").id) throw new HttpError(404, "job não encontrado");
+  if (!j || j.user_id !== c.get("user").id) throw new HttpError(404, "job not found");
   return j;
 }
 
@@ -204,11 +204,11 @@ app.get("/api/jobs/:id/events", requireUser, (c) => {
 
 app.post("/api/jobs/:id/input", requireUser, async (c) => {
   const j = ownJob(c);
-  if (j.status !== "awaiting_input") return c.json({ error: `job em ${j.status}, não aceita entrada` }, 409);
-  if (j.input_sealed) return c.json({ error: "entrada já enviada" }, 409);
+  if (j.status !== "awaiting_input") return c.json({ error: `job is ${j.status}, not accepting input` }, 409);
+  if (j.input_sealed) return c.json({ error: "input already sent" }, 409);
   const b = await c.req.json();
   const s = b.sealed;
-  if (!s?.c_pub || !s?.iv || !s?.ct || JSON.stringify(s).length > 25_000_000) return c.json({ error: "entrada selada inválida" }, 400);
+  if (!s?.c_pub || !s?.iv || !s?.ct || JSON.stringify(s).length > 25_000_000) return c.json({ error: "invalid sealed input" }, 400);
   db.prepare("UPDATE jobs SET input_sealed = ? WHERE id = ?").run(JSON.stringify({ c_pub: s.c_pub, iv: s.iv, ct: s.ct }), j.id);
   event(j.user_id, j.id, "job.input_sealed");
   return c.json({ ok: true });
@@ -222,7 +222,7 @@ app.post("/api/jobs/:id/collected", requireUser, (c) => {
 
 app.delete("/api/jobs/:id", requireUser, async (c) => {
   const j = ownJob(c);
-  if (!FINAL.includes(j.status)) await finish(j, "killed", "morto pelo usuário");
+  if (!FINAL.includes(j.status)) await finish(j, "killed", "killed by the user");
   return c.json(publicJob(getJob(j.id)!));
 });
 
@@ -232,8 +232,8 @@ const agent = new Hono<{ Variables: { job: Job } }>();
 agent.use("*", async (c, next) => {
   const raw = c.req.header("authorization")?.replace(/^Bearer /, "") ?? "";
   const j = db.prepare("SELECT * FROM jobs WHERE job_token_hash = ?").get(sha256(raw)) as Job | undefined;
-  if (!j) return c.json({ error: "job desconhecido" }, 401);
-  if (FINAL.includes(j.status)) return c.json({ error: "job encerrado" }, 410);
+  if (!j) return c.json({ error: "unknown job" }, 401);
+  if (FINAL.includes(j.status)) return c.json({ error: "job finished" }, 410);
   c.set("job", j);
   await next();
 });
@@ -253,7 +253,7 @@ agent.post("/status", async (c) => {
 agent.post("/attestation", async (c) => {
   const j = c.get("job");
   const b = await c.req.json();
-  if (j.attestation) return c.json({ error: "já atestado" }, 409);
+  if (j.attestation) return c.json({ error: "already attested" }, 409);
   setStatus(j, "awaiting_input", { attestation: String(b.document), attested_at: now() });
   return c.json({ ok: true });
 });
@@ -263,7 +263,7 @@ agent.get("/input", async (c) => {
   const until = Date.now() + Math.min(25, Number(c.req.query("wait") ?? 20)) * 1000;
   while (Date.now() < until) {
     const j = getJob(id)!;
-    if (FINAL.includes(j.status)) return c.json({ error: "job encerrado" }, 410);
+    if (FINAL.includes(j.status)) return c.json({ error: "job finished" }, 410);
     if (j.input_sealed) {
       setStatus(j, "running", { started_at: now(), input_sealed: null });
       return c.json({ sealed: JSON.parse(j.input_sealed) });
@@ -286,7 +286,7 @@ agent.post("/output", async (c) => {
   const j = c.get("job");
   const b = await c.req.json();
   const s = b.sealed;
-  if (!s?.iv || !s?.ct) return c.json({ error: "saída inválida" }, 400);
+  if (!s?.iv || !s?.ct) return c.json({ error: "invalid output" }, 400);
   db.prepare("UPDATE jobs SET output_sealed = ?, meta = ?, egress = ? WHERE id = ?")
     .run(JSON.stringify({ iv: s.iv, ct: s.ct }), JSON.stringify(b.meta ?? {}), JSON.stringify(b.egress ?? {}).slice(0, 20000), j.id);
   await finish(j, "done");
@@ -309,7 +309,7 @@ app.get("/api/public/info", (c) => {
 
 app.get("/wisp.tgz", (c) => {
   const p = `${ROOT}/server/data/wisp.tgz`;
-  if (!existsSync(p)) return c.text("pacote ainda não publicado", 404);
+  if (!existsSync(p)) return c.text("package not published yet", 404);
   c.header("Content-Type", "application/gzip");
   c.header("Cache-Control", "no-cache");
   return c.body(readFileSync(p));
@@ -318,7 +318,7 @@ app.get("/wisp.tgz", (c) => {
 app.use("/*", serveStatic({ root: "../web/dist", rewriteRequestPath: (p) => p }));
 app.get("*", (c) => {
   const index = `${ROOT}/web/dist/index.html`;
-  if (c.req.path.startsWith("/api/") || !existsSync(index)) return c.json({ error: "não encontrado" }, 404);
+  if (c.req.path.startsWith("/api/") || !existsSync(index)) return c.json({ error: "not found" }, 404);
   return c.html(readFileSync(index, "utf8"));
 });
 

@@ -21,7 +21,7 @@ const SKIP_DIRS = new Set(["node_modules", ".git", ".venv", "venv", "__pycache__
 /** Copia do projeto: no git, o que ele rastreia + arquivos novos não ignorados (nunca o que está no .gitignore). */
 export function packWorkspace(dir) {
   const root = resolve(dir);
-  if (!existsSync(root) || !statSync(root).isDirectory()) throw new Error(`workspace não é um diretório: ${root}`);
+  if (!existsSync(root) || !statSync(root).isDirectory()) throw new Error(`workspace is not a directory: ${root}`);
   let files;
   const git = spawnSync("git", ["-C", root, "ls-files", "-z", "-co", "--exclude-standard"], { maxBuffer: 256 * 1024 * 1024 });
   if (git.status === 0) {
@@ -41,8 +41,8 @@ export function packWorkspace(dir) {
   const tar = spawnSync("tar", ["-czf", "-", "-C", root, "--null", "-T", "-"], { input: files.join("\0"), maxBuffer: 256 * 1024 * 1024 });
   if (tar.status !== 0) throw new Error(`tar falhou: ${tar.stderr.toString().slice(0, 300)}`);
   if (tar.stdout.length > MAX_WORKSPACE) {
-    throw new Error(`projeto grande demais (${(tar.stdout.length / 1048576).toFixed(1)} MB compactado, máximo 15 MB): ` +
-      "aponte workspace para um subdiretório ou ignore arquivos pesados no .gitignore");
+    throw new Error(`project too large (${(tar.stdout.length / 1048576).toFixed(1)} MB compressed, max 15 MB): ` +
+      "point workspace at a subdirectory or ignore heavy files in .gitignore");
   }
   return { root, tgz: tar.stdout, files: files.length };
 }
@@ -56,7 +56,7 @@ export async function spawnAgent(o) {
   let note;
   if (cred.left && cred.left - 300 < timeout) {
     timeout = Math.max(60, Math.floor(cred.left - 300));
-    note = `timeout reduzido para ${timeout}s (validade do login local)`;
+    note = `timeout lowered to ${timeout}s (local login validity)`;
   }
   const ws = o.workspace ? packWorkspace(o.workspace) : null;
   const priv = newClientKey();
@@ -72,7 +72,7 @@ export async function spawnAgent(o) {
   p.catch(() => {});
   return { id: job.id, status: job.status, engine, ram_gb: job.ram_gb, instance_type: job.instance_type,
     credential: cred.source, reserved_usd: +(job.hold_cents / 100).toFixed(4),
-    ...(ws ? { workspace: `${ws.root} (${ws.files} arquivos, ${(ws.tgz.length / 1024).toFixed(0)} KB, cifrado)` } : {}),
+    ...(ws ? { workspace: `${ws.root} (${ws.files} files, ${(ws.tgz.length / 1024).toFixed(0)} KB, encrypted)` } : {}),
     ...(note ? { note } : {}) };
 }
 
@@ -98,7 +98,7 @@ async function sealWhenReady(id, priv, nonce, payload) {
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
-  throw new Error("a máquina não ficou pronta em 20 min");
+  throw new Error("the machine was not ready within 20 min");
 }
 
 /** Espera a selagem terminar (útil para o CLI, que sai logo depois). */
@@ -130,31 +130,31 @@ function parseOutput(stdout) {
 export async function result(id) {
   const j = await call("GET", `/api/jobs/${id}`);
   const meta = { id, status: j.status, ram_gb: j.ram_gb, peak_mem_mib: j.peak_mem_mib, cost_usd: j.cost_cents != null ? +(j.cost_cents / 100).toFixed(4) : null };
-  if (sealErrors.has(id)) return { ...meta, status: "failed", erro: `recusado por segurança: ${sealErrors.get(id)}` };
+  if (sealErrors.has(id)) return { ...meta, status: "failed", error: `refused for security: ${sealErrors.get(id)}` };
   if (!FINAL.includes(j.status)) return { ...meta, mem_used_mib: j.mem_used_mib };
   if (j.status !== "done" || !j.output) {
     rmSync(keyFile(id), { force: true });
-    return { ...meta, erro: j.error ?? (j.collected_at ? "resultado já recolhido antes" : j.status) };
+    return { ...meta, error: j.error ?? (j.collected_at ? "result was already collected" : j.status) };
   }
   const f = keyFile(id);
-  if (!existsSync(f)) return { ...meta, erro: "a chave para abrir esse resultado não está nesta máquina" };
+  if (!existsSync(f)) return { ...meta, error: "the key to open this result is not on this machine" };
   const k = JSON.parse(readFileSync(f, "utf8"));
   const out = JSON.parse(openOutput(importKey(k.priv), Buffer.from(k.enclave_pub, "base64"), Buffer.from(k.nonce, "base64"), j.output).toString());
   await call("POST", `/api/jobs/${id}/collected`).catch(() => {});
   rmSync(f, { force: true });
   const parsed = parseOutput(out.stdout ?? "");
   const res = { ...parsed, ...meta, exit_code: out.exit_code, duration_s: out.duration_s };
-  if (out.exit_code === 124) res.erro = "timeout";
+  if (out.exit_code === 124) res.error = "timeout";
   if (out.patch) {
     const f = join(ensureDir("patches"), `${id}.patch`);
     writeSecret(f, out.patch);
     res.patch_file = f;
     res.patch_stat = out.patch_stat;
-    res.aplicar = k.workspace ? `git -C ${JSON.stringify(k.workspace)} apply ${JSON.stringify(f)}` : `git apply ${JSON.stringify(f)}`;
+    res.apply = k.workspace ? `git -C ${JSON.stringify(k.workspace)} apply ${JSON.stringify(f)}` : `git apply ${JSON.stringify(f)}`;
   } else if (out.patch === "") {
-    res.patch_stat = "nenhuma mudança no projeto";
+    res.patch_stat = "no changes to the project";
   } else if (out.patch_error) {
-    res.patch_erro = out.patch_error;
+    res.patch_error = out.patch_error;
     res.patch_stat = out.patch_stat;
   }
   if (out.exit_code !== 0 && out.stderr_tail) res.stderr_tail = out.stderr_tail.slice(-1500);
@@ -165,7 +165,7 @@ export async function waitAgent(id, maxWaitS = 900) {
   const until = Date.now() + maxWaitS * 1000;
   for (;;) {
     const r = await result(id);
-    if (FINAL.includes(r.status) || r.erro || Date.now() > until) return r;
+    if (FINAL.includes(r.status) || r.error || Date.now() > until) return r;
     await new Promise((res) => setTimeout(res, 3000));
   }
 }
@@ -179,9 +179,9 @@ export async function killAgent(id) {
 export async function listAgents() {
   const [me, jobs] = await Promise.all([call("GET", "/api/me"), call("GET", "/api/jobs?limit=20")]);
   return {
-    conta: me.email, saldo_usd: +(me.credit_cents / 100).toFixed(2),
-    ram_disponivel_gb: me.tiers.filter((t) => t.available).map((t) => t.ram_gb),
-    agentes: jobs.filter((j) => !FINAL.includes(j.status) || (j.status === "done" && !j.collected_at)).map((j) => ({
+    account: me.email, balance_usd: +(me.credit_cents / 100).toFixed(2),
+    ram_available_gb: me.tiers.filter((t) => t.available).map((t) => t.ram_gb),
+    agents: jobs.filter((j) => !FINAL.includes(j.status) || (j.status === "done" && !j.collected_at)).map((j) => ({
       id: j.id, status: j.status, engine: j.engine, ram_gb: j.ram_gb, mem_used_mib: j.mem_used_mib, label: j.label })),
   };
 }

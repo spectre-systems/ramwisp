@@ -4,68 +4,68 @@ import { API, getToken, setClient, startLogin } from "./account.js";
 import { LoginRequired, killAgent, listAgents, result, spawnAgent, waitAgent } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.3";
+const VERSION = "0.1.4";
 
-const INSTRUCTIONS = `wisp roda subagentes Claude Code ou Codex em máquinas efêmeras na nuvem, com a RAM que você pedir,
-sem pesar esta máquina. Cada subagente nasce numa enclave isolada (AWS Nitro): antes de mandar qualquer coisa,
-este MCP confere criptograficamente a imagem da enclave e cifra a missão e o login do usuário só para ela.
-Nem o operador do wisp consegue ler a missão, a credencial ou o resultado. A máquina é destruída ao terminar.
+const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
+without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
+this MCP cryptographically verifies the enclave image and encrypts the task and the user's login for that enclave only.
+Not even the ramwisp operator can read the task, the credential or the result. The machine is destroyed when it finishes.
 
-Quando usar: o usuário pede subagente remoto / "roda no wisp" / "sobe N subagentes", ou há tarefas
-independentes e pesadas (build, testes, pesquisa longa) que podem rodar em paralelo fora daqui.
+When to use: the user asks for remote subagents / "run it on ramwisp" / "spin up N subagents", or there are
+independent, heavy tasks (builds, test suites, long research) that can run in parallel elsewhere.
 
-Como usar bem:
-- Paralelo: chame spawn_agent para todas as missões primeiro, depois wait_agent para cada id.
-- Para trabalhar no código do usuário, passe workspace (ex.: o diretório do projeto): vai uma cópia cifrada,
-  o subagente trabalha nela e as mudanças voltam como patch (aplique com o comando em "aplicar" depois de revisar).
-  Sem workspace a máquina começa vazia: ponha todo o contexto na missão. Tem internet (HTTPS), mas não tem git/SSH do usuário.
-- A máquina leva ~2-3 min para subir; wait_agent espera até 15 min por chamada (chame de novo se voltar running).
-- Sempre recolha com wait_agent ou agent_result: a resposta só pode ser aberta nesta máquina.
-- Cada subagente consome crédito do wisp (máquina) e a assinatura/chave do usuário (modelo). Não dispare dezenas.
-- Se a resposta disser que é preciso entrar na conta, mostre o link ao usuário.`;
+How to use it well:
+- Parallel: call spawn_agent for every task first, then wait_agent for each id.
+- To work on the user's code, pass workspace (e.g. the project directory): an encrypted copy is sent,
+  the subagent works on it and the changes come back as a patch (apply it with the "apply" command after reviewing).
+  Without workspace the machine starts empty: put all context in the mission. It has internet (HTTPS) but no git/SSH access of the user.
+- A machine takes ~1-3 min to start; wait_agent waits up to 15 min per call (call it again if it returns running).
+- Always collect with wait_agent or agent_result: the answer can only be decrypted on this machine.
+- Each subagent uses ramwisp credit (the machine) and the user's subscription/key (the model). Don't launch dozens.
+- If a response says the user needs to sign in, show them the link.`;
 
 const TOOLS = [
-  { name: "spawn_agent", description: "Sobe um subagente efêmero numa máquina com a RAM pedida e devolve o id na hora.",
+  { name: "spawn_agent", description: "Launch an ephemeral subagent on a machine with the requested RAM and return its id right away.",
     inputSchema: { type: "object", required: ["mission"], properties: {
-      mission: { type: "string", description: "Missão completa e autocontida, com todo o contexto necessário." },
+      mission: { type: "string", description: "Complete, self-contained task with all the context it needs." },
       engine: { type: "string", enum: ["claude", "codex"], default: "claude" },
-      model: { type: "string", description: "Modelo do motor. Omitir = padrão dele." },
-      ram_gb: { type: "integer", enum: [2, 4, 8, 16, 24], default: 2, description: "RAM do subagente." },
-      max_turns: { type: "integer", default: 20, description: "Só vale para claude." },
+      model: { type: "string", description: "Model for the engine. Omit for its default." },
+      ram_gb: { type: "integer", enum: [2, 4, 8, 16, 24], default: 2, description: "Subagent RAM." },
+      max_turns: { type: "integer", default: 20, description: "Claude only." },
       timeout_s: { type: "integer", default: 1800, minimum: 60, maximum: 7200 },
       auth: { type: "string", enum: ["auto", "login", "key"], default: "auto",
-        description: "login = assinatura do usuário nesta máquina; key = chave de API do env; auto = chave se houver." },
-      workspace: { type: "string", description: "Caminho de um diretório/repositório DESTA máquina para mandar junto. Vai uma cópia cifrada (no git: arquivos rastreados + novos não ignorados; nunca o que está no .gitignore). O subagente trabalha em ~/work e as mudanças voltam como patch (patch_file + comando aplicar). Máx. 15 MB compactado." },
-      label: { type: "string", description: "Rótulo curto VISÍVEL no painel (não coloque nada sensível)." } } } },
-  { name: "wait_agent", description: "Espera o subagente terminar e devolve o resultado (campo result = resposta).",
+        description: "login = the user's subscription on this machine; key = API key from env; auto = key if present." },
+      workspace: { type: "string", description: "Path to a directory/repo ON THIS MACHINE to send along. An encrypted copy is sent (in git: tracked files + new non-ignored files; never anything in .gitignore). The subagent works in ~/work and changes come back as a patch (patch_file + apply command). Max 15 MB compressed." },
+      label: { type: "string", description: "Short label VISIBLE in the dashboard (don't put anything sensitive)." } } } },
+  { name: "wait_agent", description: "Wait for the subagent to finish and return the result (field result = the answer).",
     inputSchema: { type: "object", required: ["id"], properties: {
       id: { type: "string" }, max_wait_s: { type: "integer", default: 900, maximum: 1800 } } } },
-  { name: "agent_result", description: "Resultado sem esperar: devolve a resposta ou o status atual (running, RAM em uso).",
+  { name: "agent_result", description: "Result without waiting: returns the answer or the current status (running, RAM in use).",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
-  { name: "kill_agent", description: "Mata o subagente e destrói a máquina na hora.",
+  { name: "kill_agent", description: "Kill the subagent and destroy its machine immediately.",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
-  { name: "list_agents", description: "Saldo, RAM disponível e subagentes vivos ou com resultado para recolher.",
+  { name: "list_agents", description: "Balance, available RAM sizes and subagents that are running or have results to collect.",
     inputSchema: { type: "object", properties: {} } },
-  { name: "wisp_login", description: "Conecta este MCP à conta wisp do usuário (abre o navegador).",
+  { name: "wisp_login", description: "Connect this MCP to the user's ramwisp account (opens the browser).",
     inputSchema: { type: "object", properties: {} } },
 ];
 
 async function loginMessage() {
   const l = await startLogin();
-  // com navegador aberto aqui, espera um pouco pela aprovação e segue sozinho
+  // with a browser open here, wait a bit for approval and continue on its own
   if (l.opened) {
     const ok = await Promise.race([l.done.then(() => true).catch(() => false), new Promise((r) => setTimeout(() => r(false), 120_000))]);
     if (ok) return null;
   }
-  return `Para usar o wisp, conecte sua conta: abra ${l.verification_uri_complete} e confirme o código ${l.user_code}.\n` +
-    `Não tem conta? Crie lá mesmo, com crédito grátis. Depois repita o pedido.`;
+  return `To use ramwisp, connect your account: open ${l.verification_uri_complete} and confirm the code ${l.user_code}.\n` +
+    `No account yet? Create one there, with free credit. Then repeat the request.`;
 }
 
 async function runTool(name, a) {
   if (name === "wisp_login") {
-    if (getToken()) return { ok: true, msg: `já conectado a ${API}` };
+    if (getToken()) return { ok: true, msg: `already connected to ${API}` };
     const msg = await loginMessage();
-    return msg ? { login_necessario: msg } : { ok: true, msg: "conta conectada" };
+    return msg ? { login_required: msg } : { ok: true, msg: "account connected" };
   }
   const attempt = () => {
     switch (name) {
@@ -74,7 +74,7 @@ async function runTool(name, a) {
       case "agent_result": return result(a.id);
       case "kill_agent": return killAgent(a.id);
       case "list_agents": return listAgents();
-      default: throw new Error(`ferramenta desconhecida: ${name}`);
+      default: throw new Error(`unknown tool: ${name}`);
     }
   };
   try {
@@ -83,7 +83,7 @@ async function runTool(name, a) {
   } catch (e) {
     if (!(e instanceof LoginRequired) && e.status !== 401) throw e;
     const msg = await loginMessage();
-    if (msg) return { login_necessario: msg };
+    if (msg) return { login_required: msg };
     return await attempt();
   }
 }
@@ -111,10 +111,10 @@ export function serve() {
           const out = await runTool(params.name, params.arguments ?? {});
           res = { content: [{ type: "text", text: typeof out === "string" ? out : JSON.stringify(out, null, 1) }] };
         } catch (e) {
-          res = { content: [{ type: "text", text: `erro: ${e.message}` }], isError: true };
+          res = { content: [{ type: "text", text: `error: ${e.message}` }], isError: true };
         }
       } else {
-        return send({ jsonrpc: "2.0", id, error: { code: -32601, message: `método desconhecido: ${method}` } });
+        return send({ jsonrpc: "2.0", id, error: { code: -32601, message: `unknown method: ${method}` } });
       }
       send({ jsonrpc: "2.0", id, result: res });
     } catch (e) {

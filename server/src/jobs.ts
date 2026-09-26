@@ -32,23 +32,23 @@ export class HttpError extends Error {
 
 export function createJob(userId: string, tokenId: string | null, b: any, client: string | null = null) {
   if (config.launcher === "ec2" && !config.artifactBucket) {
-    throw new HttpError(503, "a capacidade na nuvem ainda está sendo liberada; tente de novo mais tarde");
+    throw new HttpError(503, "cloud capacity is still being provisioned; try again later");
   }
   const engine = b.engine ?? "claude";
-  if (!["claude", "codex"].includes(engine)) throw new HttpError(400, "engine: claude ou codex");
+  if (!["claude", "codex"].includes(engine)) throw new HttpError(400, "engine: claude or codex");
   const ram = Number(b.ram_gb ?? 2);
-  if (!RAM_TIERS.includes(ram)) throw new HttpError(400, `ram_gb: um de ${RAM_TIERS.join(", ")}`);
+  if (!RAM_TIERS.includes(ram)) throw new HttpError(400, `ram_gb: one of ${RAM_TIERS.join(", ")}`);
   const timeout = Math.round(Number(b.timeout_s ?? 1800));
-  if (!(timeout >= 60 && timeout <= 7200)) throw new HttpError(400, "timeout_s entre 60 e 7200");
+  if (!(timeout >= 60 && timeout <= 7200)) throw new HttpError(400, "timeout_s between 60 and 7200");
   const nonce = String(b.nonce ?? "");
-  if (Buffer.from(nonce, "base64").length !== 32) throw new HttpError(400, "nonce: 32 bytes em base64");
+  if (Buffer.from(nonce, "base64").length !== 32) throw new HttpError(400, "nonce: 32 bytes in base64");
   const inst = pickInstance(ram);
-  if (!inst) throw new HttpError(400, `sem máquina para ${ram} GB agora (limite da conta)`);
+  if (!inst) throw new HttpError(400, `no machine for ${ram} GB right now (account limit)`);
   const hold = (inst.rateCentsHour * (timeout + BOOT_ALLOWANCE_S)) / 3600;
   const user = db.prepare("SELECT credit_cents FROM users WHERE id = ?").get(userId) as { credit_cents: number };
   if (user.credit_cents < hold) {
-    throw new HttpError(402, `crédito insuficiente: precisa reservar US$ ${(hold / 100).toFixed(2)}, ` +
-      `saldo US$ ${(user.credit_cents / 100).toFixed(2)} (reduza timeout_s ou ram_gb)`);
+    throw new HttpError(402, `insufficient credit: needs a $${(hold / 100).toFixed(2)} hold, ` +
+      `balance is $${(user.credit_cents / 100).toFixed(2)} (lower timeout_s or ram_gb)`);
   }
   const id = "wp-" + randomBytes(4).toString("hex");
   const jobToken = randomBytes(32).toString("base64url");
@@ -57,7 +57,7 @@ export function createJob(userId: string, tokenId: string | null, b: any, client
       VALUES (?, ?, ?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
     .run(id, userId, tokenId, b.label ? String(b.label).slice(0, 80) : null, engine, ram, timeout, inst.type,
       inst.enclaveMem, inst.enclaveCpus, inst.rateCentsHour, hold, nonce, sha256(jobToken), now(), client);
-  credit(userId, -hold, "reserva", id);
+  credit(userId, -hold, "hold", id);
   pendingTokens.set(id, jobToken);
   event(userId, id, "job.created", { engine, ram_gb: ram, instance_type: inst.type, client });
   tick().catch((e) => console.error("tick", e));
@@ -86,8 +86,8 @@ export async function finish(j: Job, status: string, error?: string) {
   const cost = (fresh.rate_cents_h * secs) / 3600;
   db.prepare("UPDATE jobs SET status = ?, finished_at = ?, cost_cents = ?, error = COALESCE(?, error), input_sealed = NULL WHERE id = ?")
     .run(status, end, cost, error ?? null, fresh.id);
-  credit(fresh.user_id, fresh.hold_cents, "devolução da reserva", fresh.id);
-  if (cost > 0) credit(fresh.user_id, -cost, `uso ${fresh.instance_type} ${Math.round(secs)}s`, fresh.id);
+  credit(fresh.user_id, fresh.hold_cents, "hold refund", fresh.id);
+  if (cost > 0) credit(fresh.user_id, -cost, `usage ${fresh.instance_type} ${Math.round(secs)}s`, fresh.id);
   event(fresh.user_id, fresh.id, `job.${status}`, { cost_cents: cost, secs: Math.round(secs), error });
   pendingTokens.delete(fresh.id);
   if (fresh.instance_id) {
@@ -107,7 +107,7 @@ export async function tick() {
     for (const j of queued) {
       if (free <= 0) break;
       const token = pendingTokens.get(j.id);
-      if (!token) { await finish(j, "failed", "servidor reiniciou antes de subir a máquina"); continue; }
+      if (!token) { await finish(j, "failed", "server restarted before the machine was launched"); continue; }
       setStatus(j, "launching", { launched_at: now() });
       free--;
       try {
@@ -118,15 +118,15 @@ export async function tick() {
         pendingTokens.delete(j.id);
       } catch (e: any) {
         console.error("launch", j.id, e);
-        await finish(j, "failed", `não subiu a máquina: ${e?.name ?? ""} ${e?.message ?? e}`.slice(0, 400));
+        await finish(j, "failed", `machine failed to launch: ${e?.name ?? ""} ${e?.message ?? e}`.slice(0, 400));
       }
     }
     const t = now();
     for (const j of db.prepare(`SELECT * FROM jobs WHERE status IN (${ACTIVE.map(() => "?").join(",")})`).all(...ACTIVE) as Job[]) {
       if (j.status === "awaiting_input" && j.attested_at && t - j.attested_at > INPUT_WAIT_MS) {
-        await finish(j, "expired", "o cliente não mandou a missão selada a tempo");
+        await finish(j, "expired", "the client did not send the sealed task in time");
       } else if (j.launched_at && t - j.launched_at > (j.timeout_s + BOOT_ALLOWANCE_S + 300) * 1000) {
-        await finish(j, "expired", "passou do tempo máximo");
+        await finish(j, "expired", "exceeded the time limit");
       }
     }
   } finally {

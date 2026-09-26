@@ -24,8 +24,8 @@ function claudeLogin() {
 
 function claudeCredential(mode, needS) {
   const key = process.env.WISP_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (mode !== "login" && key) return { kind: "anthropic_key", value: key, left: null, source: "chave de API" };
-  if (mode === "key") throw new Error("modo chave: defina ANTHROPIC_API_KEY (ou WISP_ANTHROPIC_API_KEY) no env do MCP");
+  if (mode !== "login" && key) return { kind: "anthropic_key", value: key, left: null, source: "API key" };
+  if (mode === "key") throw new Error("key mode: set ANTHROPIC_API_KEY (or WISP_ANTHROPIC_API_KEY) in the MCP env");
   if (process.env.CLAUDE_CODE_OAUTH_TOKEN) return { kind: "claude_oauth", value: process.env.CLAUDE_CODE_OAUTH_TOKEN, left: null, source: "CLAUDE_CODE_OAUTH_TOKEN" };
   let l = claudeLogin();
   if (l && l.exp - Date.now() / 1000 < Math.max(MIN_LEFT_S, needS)) {
@@ -33,30 +33,30 @@ function claudeCredential(mode, needS) {
     spawnSync("claude", ["-p", "ok", "--max-turns", "1"], { stdio: "ignore", timeout: 120_000 });
     l = claudeLogin();
   }
-  if (!l) throw new Error("sem login do Claude Code nesta máquina: rode `claude` e faça login, ou use uma chave (ANTHROPIC_API_KEY)");
+  if (!l) throw new Error("no Claude Code login on this machine: run `claude` and sign in, or use a key (ANTHROPIC_API_KEY)");
   const left = l.exp - Date.now() / 1000;
-  if (left < MIN_LEFT_S) throw new Error("o login local do Claude não renovou; abra o Claude Code uma vez e tente de novo");
-  return { kind: "claude_oauth", value: l.token, left, source: "login do Claude Code" };
+  if (left < MIN_LEFT_S) throw new Error("the local Claude login did not refresh; open Claude Code once and try again");
+  return { kind: "claude_oauth", value: l.token, left, source: "Claude Code login" };
 }
 
 const jwtExp = (t) => JSON.parse(Buffer.from(t.split(".")[1], "base64url").toString()).exp;
 
 function codexCredential(mode) {
   const key = process.env.WISP_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-  if (mode !== "login" && key) return { kind: "openai_key", value: key, left: null, source: "chave de API" };
+  if (mode !== "login" && key) return { kind: "openai_key", value: key, left: null, source: "API key" };
   const path = join(process.env.CODEX_HOME ?? join(homedir(), ".codex"), "auth.json");
   let d;
   try { d = JSON.parse(readFileSync(path, "utf8")); } catch {
-    throw new Error(mode === "key" ? "modo chave: defina OPENAI_API_KEY no env do MCP" : "sem login do Codex nesta máquina: rode `codex login`");
+    throw new Error(mode === "key" ? "key mode: set OPENAI_API_KEY in the MCP env" : "no Codex login on this machine: run `codex login`");
   }
-  if (mode !== "login" && d.OPENAI_API_KEY) return { kind: "openai_key", value: d.OPENAI_API_KEY, left: null, source: "chave do Codex" };
-  if (mode === "key") throw new Error("modo chave: defina OPENAI_API_KEY no env do MCP");
+  if (mode !== "login" && d.OPENAI_API_KEY) return { kind: "openai_key", value: d.OPENAI_API_KEY, left: null, source: "Codex API key" };
+  if (mode === "key") throw new Error("key mode: set OPENAI_API_KEY in the MCP env");
   const t = d.tokens ?? {};
   const left = jwtExp(t.access_token) - Date.now() / 1000;
-  if (left < MIN_LEFT_S) throw new Error("o login do Codex venceu; abra o Codex uma vez nesta máquina");
+  if (left < MIN_LEFT_S) throw new Error("the Codex login expired; open Codex once on this machine");
   const slim = { auth_mode: d.auth_mode ?? "chatgpt", OPENAI_API_KEY: null, last_refresh: new Date().toISOString(),
     tokens: { id_token: t.id_token, access_token: t.access_token, account_id: t.account_id, refresh_token: "" } };
-  return { kind: "codex_auth", value: JSON.stringify(slim), left, source: "login do ChatGPT/Codex" };
+  return { kind: "codex_auth", value: JSON.stringify(slim), left, source: "ChatGPT/Codex login" };
 }
 
 /** mode: "auto" (chave se houver, senão login), "key" ou "login". */

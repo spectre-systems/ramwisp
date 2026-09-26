@@ -42,8 +42,8 @@ export default function Dashboard() {
   if (loading) return <div style={{ minHeight: '100svh', display: 'grid', placeItems: 'center' }}><Spinner size={24} /></div>
   if (!me) return <Navigate to={`/entrar?next=${encodeURIComponent(loc.pathname)}`} replace />
   const links: [string, string, React.ReactNode][] = [
-    ['/painel', 'Visão geral', I.home], ['/painel/agentes', 'Subagentes', I.agents], ['/painel/conectar', 'Conectar', I.plug],
-    ['/painel/tokens', 'Tokens', I.key], ['/painel/extrato', 'Extrato', I.receipt], ['/painel/atividade', 'Atividade', I.pulse],
+    ['/painel', 'Overview', I.home], ['/painel/agentes', 'Subagents', I.agents], ['/painel/conectar', 'Connect', I.plug],
+    ['/painel/tokens', 'Tokens', I.key], ['/painel/extrato', 'Billing', I.receipt], ['/painel/atividade', 'Activity', I.pulse],
   ]
   return (
     <div className="dash">
@@ -58,17 +58,17 @@ export default function Dashboard() {
               </>}
             </NavLink>
           ))}
-          <NavLink to="/transparencia"><Icon d={I.shield} />Transparência</NavLink>
+          <NavLink to="/transparencia"><Icon d={I.shield} />Transparency</NavLink>
         </nav>
         <div className="credit-mini">
-          <div className="faint" style={{ fontSize: 12 }}>Saldo</div>
+          <div className="faint" style={{ fontSize: 12 }}>Balance</div>
           <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em' }}>{usd(me.credit_cents)}</div>
         </div>
         <div className="side-foot">
           <span className="faint" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{me.email}</span>
           <div style={{ display: 'flex', gap: 6 }}>
             <ThemeToggle />
-            <button className="btn ghost sm" onClick={async () => { await logout(); nav('/') }}>Sair</button>
+            <button className="btn ghost sm" onClick={async () => { await logout(); nav('/') }}>Sign out</button>
           </div>
         </div>
       </aside>
@@ -111,32 +111,32 @@ function Overview() {
       <AnimatePresence>
         {welcome && (
           <motion.div className="card glow" initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, height: 0, marginBottom: 0 }} style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div><strong>Bem-vindo ao wisp{me?.name ? `, ${me.name}` : ''}!</strong> <span className="muted">Você ganhou {usd(me?.credit_cents)} de crédito para testar.</span></div>
-            <button className="btn sm" onClick={() => setParams({})}>Fechar</button>
+            <div><strong>Welcome to ramwisp{me?.name ? `, ${me.name}` : ''}!</strong> <span className="muted">You got {usd(me?.credit_cents)} of credit to try it out.</span></div>
+            <button className="btn sm" onClick={() => setParams({})}>Close</button>
           </motion.div>
         )}
       </AnimatePresence>
       <div className="page-h">
-        <div><span className="eyebrow">painel</span><h1>Olá{me?.name ? `, ${me.name}` : ''}</h1></div>
-        <Link className="btn" to="/painel/conectar">Conectar um agente</Link>
+        <div><span className="eyebrow">dashboard</span><h1>Hi{me?.name ? `, ${me.name}` : ''}</h1></div>
+        <Link className="btn" to="/painel/conectar">Connect an agent</Link>
       </div>
 
       <div className="kpis">
-        <div className="card kpi glow"><div className="l">Saldo</div><div className="v"><CountUp value={(me?.credit_cents ?? 0) / 100} format={(n) => `US$ ${n.toFixed(2).replace('.', ',')}`} /></div></div>
-        <div className="card kpi"><div className="l">Subagentes ativos</div><div className="v"><CountUp value={live.length} /></div></div>
-        <div className="card kpi"><div className="l">Subagentes (30 dias)</div><div className="v"><CountUp value={month.jobs} /></div></div>
-        <div className="card kpi"><div className="l">GB·hora (30 dias)</div><div className="v"><CountUp value={month.gbh} format={(n) => n.toFixed(1).replace('.', ',')} /></div></div>
+        <div className="card kpi glow"><div className="l">Balance</div><div className="v"><CountUp value={(me?.credit_cents ?? 0) / 100} format={(n) => `$${n.toFixed(2)}`} /></div></div>
+        <div className="card kpi"><div className="l">Active subagents</div><div className="v"><CountUp value={live.length} /></div></div>
+        <div className="card kpi"><div className="l">Subagents (30 days)</div><div className="v"><CountUp value={month.jobs} /></div></div>
+        <div className="card kpi"><div className="l">GB·hours (30 days)</div><div className="v"><CountUp value={month.gbh} format={(n) => n.toFixed(1)} /></div></div>
       </div>
 
       {(!hasToken || !hasJob) && (
         <div className="card" style={{ marginTop: 18 }}>
-          <h3 style={{ margin: '0 0 8px' }}>Primeiros passos</h3>
+          <h3 style={{ margin: '0 0 8px' }}>Getting started</h3>
           <div className="onboard">
-            <OnboardStep done t="Criar conta" d="Feito. Seu crédito grátis já está no saldo." />
-            <OnboardStep done={hasToken} t="Adicionar o MCP ao seu Claude Code ou Codex" d="Rode o comando abaixo; no primeiro uso ele abre esta página para você aprovar.">
+            <OnboardStep done t="Create an account" d="Done. Your free credit is already in your balance." />
+            <OnboardStep done={hasToken} t="Add the MCP to Claude Code or Codex" d="Run the command below; on first use it opens this site so you can approve it.">
               {!hasToken && <div style={{ marginTop: 10 }}><CopyCommand cmd={installCmd()} /></div>}
             </OnboardStep>
-            <OnboardStep done={hasJob} t="Pedir o primeiro subagente" d={'Diga ao seu agente: "sobe um subagente no wisp com 4 GB para …"'} />
+            <OnboardStep done={hasJob} t="Ask for your first subagent" d={'Tell your agent: "spin up a ramwisp subagent with 4 GB to …"'} />
           </div>
         </div>
       )}
@@ -145,10 +145,10 @@ function Overview() {
         Ao vivo {live.length > 0 && <span className="pill live"><span className="dot" />{live.length}</span>}
       </h2>
       {live.length === 0
-        ? <div className="card empty"><Ghost mood="sleep" size={52} /><p className="muted" style={{ margin: '10px 0 0' }}>Nenhum subagente rodando agora.</p></div>
+        ? <div className="card empty"><Ghost mood="sleep" size={52} /><p className="muted" style={{ margin: '10px 0 0' }}>No subagents running right now.</p></div>
         : <div className="live-grid"><AnimatePresence>{live.map((j) => <LiveCard key={j.id} j={j} />)}</AnimatePresence></div>}
 
-      <h2 style={{ fontSize: 18, margin: '34px 0 14px' }}>Uso nos últimos 30 dias</h2>
+      <h2 style={{ fontSize: 18, margin: '34px 0 14px' }}>Usage over the last 30 days</h2>
       <div className="card"><UsageChart days={days.data ?? []} /></div>
     </>
   )
@@ -171,7 +171,7 @@ function LiveCard({ j }: { j: Job }) {
   const since = j.started_at ?? j.launched_at ?? j.created_at
   const [, tick] = useState(0)
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t) }, [])
-  const kill = async () => { if (confirm(`Encerrar ${j.id}? A máquina é destruída na hora.`)) await api('DELETE', `/api/jobs/${j.id}`).catch(() => {}) }
+  const kill = async () => { if (confirm(`Kill ${j.id}? The machine is destroyed immediately.`)) await api('DELETE', `/api/jobs/${j.id}`).catch(() => {}) }
   return (
     <motion.div className="card agent-card glow" layout initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, filter: 'blur(8px)' }}>
       <div className="top">
@@ -186,13 +186,13 @@ function LiveCard({ j }: { j: Job }) {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
           <span className="muted">RAM</span>
-          <span className="mono">{j.mem_used_mib != null ? `${(j.mem_used_mib / 1024).toFixed(1)} / ${((total ?? 0) / 1024).toFixed(0)} GB` : `${j.ram_gb} GB reservados`}</span>
+          <span className="mono">{j.mem_used_mib != null ? `${(j.mem_used_mib / 1024).toFixed(1)} / ${((total ?? 0) / 1024).toFixed(0)} GB` : `${j.ram_gb} GB reserved`}</span>
         </div>
         <RamBar used={j.mem_used_mib ?? 0} total={total ?? 1} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13 }}>
         <span className="faint">{viaLabel(j.client)} → {engineLabel(j.engine)} · {dur((Date.now() - since) / 1000)}</span>
-        <button className="btn sm danger" onClick={kill}>Encerrar</button>
+        <button className="btn sm danger" onClick={kill}>Kill</button>
       </div>
     </motion.div>
   )
@@ -204,17 +204,17 @@ function UsageChart({ days }: { days: Day[] }) {
     return Array.from({ length: 30 }, (_, i) => {
       const dt = new Date(Date.now() - (29 - i) * 86400_000)
       const key = dt.toISOString().slice(0, 10)
-      return { key, label: dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }), d: map.get(key) }
+      return { key, label: dt.toLocaleDateString('en-US', { day: '2-digit', month: 'short' }), d: map.get(key) }
     })
   }, [days])
   const max = Math.max(0.01, ...series.map((s) => s.d?.gb_hours ?? 0))
   const [hover, setHover] = useState<number | null>(null)
   const box = useRef<HTMLDivElement>(null)
   const W = 900, H = 180, bw = W / 30
-  if (!days.length) return <p className="muted" style={{ margin: 0, textAlign: 'center', padding: '30px 0' }}>Assim que você rodar subagentes, o uso aparece aqui.</p>
+  if (!days.length) return <p className="muted" style={{ margin: 0, textAlign: 'center', padding: '30px 0' }}>Once you run subagents, usage shows up here.</p>
   return (
     <div ref={box} style={{ position: 'relative' }} onMouseLeave={() => setHover(null)}>
-      <svg viewBox={`0 0 ${W} ${H + 24}`} width="100%" role="img" aria-label="GB·hora por dia">
+      <svg viewBox={`0 0 ${W} ${H + 24}`} width="100%" role="img" aria-label="GB·hours per day">
         <defs><linearGradient id="bar" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="var(--wisp)" /><stop offset="1" stopColor="var(--wisp-2)" stopOpacity=".5" /></linearGradient></defs>
         {[0.25, 0.5, 0.75, 1].map((f) => <line key={f} x1="0" x2={W} y1={H - H * f} y2={H - H * f} stroke="var(--line)" />)}
         {series.map((s, i) => {
@@ -247,14 +247,14 @@ function Agents() {
   const [open, setOpen] = useState<string | null>(null)
   return (
     <>
-      <div className="page-h"><div><span className="eyebrow">histórico</span><h1>Subagentes</h1></div></div>
+      <div className="page-h"><div><span className="eyebrow">history</span><h1>Subagents</h1></div></div>
       <div className="card" style={{ padding: 10 }}>
         {!jobs.data ? <div className="empty"><Spinner /></div> : jobs.data.length === 0 ? (
-          <div className="empty"><div className="ghost-wisp">◌</div><p className="muted">Nenhum subagente ainda. <Link to="/painel/conectar" style={{ color: 'var(--wisp)' }}>Conecte seu agente</Link>.</p></div>
+          <div className="empty"><div className="ghost-wisp">◌</div><p className="muted">No subagents yet. <Link to="/painel/conectar" style={{ color: 'var(--wisp)' }}>Connect your agent</Link>.</p></div>
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>ID</th><th>Status</th><th>Pedido por</th><th>Motor</th><th>RAM</th><th>Pico</th><th>Duração</th><th>Custo</th><th>Quando</th></tr></thead>
+              <thead><tr><th>ID</th><th>Status</th><th>Requested by</th><th>Engine</th><th>RAM</th><th>Peak</th><th>Duration</th><th>Cost</th><th>When</th></tr></thead>
               <tbody>
                 {jobs.data.map((j) => (
                   <Fragment key={j.id}>
@@ -297,20 +297,20 @@ function JobDetail({ j }: { j: Job }) {
   return (
     <div style={{ padding: '6px 14px 18px' }}>
       <div className="detail-grid">
-        <div><div className="l">Pedido por</div>{viaLabel(j.client)}</div>
-        <div><div className="l">Motor</div>{engineLabel(j.engine)}</div>
-        <div><div className="l">Máquina</div>{j.instance_type} · {j.enclave_cpus} vCPU</div>
-        <div><div className="l">Memória da enclave</div>{(j.enclave_mem_mib / 1024).toFixed(0)} GB</div>
-        <div><div className="l">Código de saída</div>{j.exit_code ?? '—'}</div>
-        <div><div className="l">Resultado</div>{j.collected_at ? 'recolhido e apagado' : j.status === 'done' ? 'aguardando o seu MCP' : '—'}</div>
+        <div><div className="l">Requested by</div>{viaLabel(j.client)}</div>
+        <div><div className="l">Engine</div>{engineLabel(j.engine)}</div>
+        <div><div className="l">Machine</div>{j.instance_type} · {j.enclave_cpus} vCPU</div>
+        <div><div className="l">Enclave memory</div>{(j.enclave_mem_mib / 1024).toFixed(0)} GB</div>
+        <div><div className="l">Exit code</div>{j.exit_code ?? '—'}</div>
+        <div><div className="l">Result</div>{j.collected_at ? 'collected and deleted' : j.status === 'done' ? 'waiting for your MCP' : '—'}</div>
       </div>
       {j.error && <div className="error-box" style={{ marginBottom: 12 }}>{j.error}</div>}
-      <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>LOG DO SUBAGENTE</div>
+      <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>SUBAGENT LOG</div>
       <div className="joblog mono">
-        {rows.length === 0 && <div className="faint">carregando…</div>}
+        {rows.length === 0 && <div className="faint">loading…</div>}
         {rows.map((e, i) => (
           <div key={i} className="joblog-row">
-            <span className="faint">{new Date(e.at).toLocaleTimeString('pt-BR')}</span>
+            <span className="faint">{new Date(e.at).toLocaleTimeString('en-US', { hour12: false })}</span>
             <span className="faint">+{Math.round((e.at - t0) / 1000)}s</span>
             <span>{EVENT_LABEL[e.kind] ?? e.kind}</span>
             <span className="faint">{detail(e)}</span>
@@ -319,7 +319,7 @@ function JobDetail({ j }: { j: Job }) {
       </div>
       {egress.length > 0 && (
         <>
-          <div className="faint" style={{ fontSize: 12, margin: '14px 0 6px' }}>Domínios acessados (só o nome e o volume; o conteúdo é cifrado)</div>
+          <div className="faint" style={{ fontSize: 12, margin: '14px 0 6px' }}>Domains reached (name and volume only; the content is encrypted)</div>
           <div className="egress">{egress.map(([h, b]) => <span key={h} className="pill mono">{h} · {(b / 1024).toFixed(0)} KB</span>)}</div>
         </>
       )}
@@ -333,7 +333,7 @@ function Connect() {
   const [tab, setTab] = useState<'claude' | 'codex'>('claude')
   return (
     <>
-      <div className="page-h"><div><span className="eyebrow">onboarding</span><h1>Conectar um agente</h1></div></div>
+      <div className="page-h"><div><span className="eyebrow">onboarding</span><h1>Connect an agent</h1></div></div>
       <div className="card glow">
         <div style={{ display: 'flex', gap: 6, marginBottom: 18 }}>
           {(['claude', 'codex'] as const).map((k) => (
@@ -351,21 +351,21 @@ function Connect() {
               </>
             ) : (
               <>
-                <p className="muted" style={{ marginTop: 0 }}>Adicione ao <code>~/.codex/config.toml</code> e abra o Codex de novo. O <code>tool_timeout_sec</code> é importante: esperar um subagente pode levar minutos.</p>
+                <p className="muted" style={{ marginTop: 0 }}>Add this to <code>~/.codex/config.toml</code> and restart Codex. <code>tool_timeout_sec</code> matters: waiting for a subagent can take minutes.</p>
                 <pre className="block mono">{codexToml()}</pre>
               </>
             )}
           </motion.div>
         </AnimatePresence>
         <ol className="muted" style={{ margin: '20px 0 0', paddingLeft: 20, display: 'grid', gap: 8, fontSize: 14 }}>
-          <li>No primeiro uso, o MCP abre esta página para você aprovar (ou mostra um link, se estiver num servidor).</li>
-          <li>Por padrão ele usa o seu login do Claude Code/Codex desta máquina. Para usar uma chave de API, ponha <code>ANTHROPIC_API_KEY</code> ou <code>OPENAI_API_KEY</code> no env do MCP.</li>
-          <li>Peça ao seu agente em linguagem normal: <em>“roda isso num subagente wisp com 8 GB”</em>.</li>
+          <li>On first use, the MCP opens this site for you to approve (or prints a link, if you are on a server).</li>
+          <li>By default it uses the Claude Code/Codex login on that machine. To use an API key instead, set <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> in the MCP env.</li>
+          <li>Ask your agent in plain words: <em>“run this in a ramwisp subagent with 8 GB”</em>.</li>
         </ol>
       </div>
       <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ margin: '0 0 6px', fontSize: 16 }}>Prefere um token fixo?</h3>
-        <p className="muted" style={{ margin: '0 0 12px', fontSize: 14 }}>Para CI ou máquinas sem navegador: crie um token em <Link to="/painel/tokens" style={{ color: 'var(--wisp)' }}>Tokens</Link> e passe como <code>WISP_TOKEN</code>.</p>
+        <h3 style={{ margin: '0 0 6px', fontSize: 16 }}>Prefer a fixed token?</h3>
+        <p className="muted" style={{ margin: '0 0 12px', fontSize: 14 }}>For CI or machines without a browser: create a token in <Link to="/painel/tokens" style={{ color: 'var(--wisp)' }}>Tokens</Link> and pass it as <code>WISP_TOKEN</code>.</p>
         <CopyCommand cmd={'claude mcp add --scope user ramwisp -e WISP_TOKEN=wsp_… -- npx -y ramwisp@latest'} />
       </div>
     </>
@@ -381,40 +381,40 @@ function Tokens() {
   const [busy, setBusy] = useState(false)
   const create = async () => {
     setBusy(true)
-    try { const r = await api<{ token: string }>('POST', '/api/tokens', { label: label || 'token manual' }); setFresh(r.token); setLabel(''); tokens.reload() } finally { setBusy(false) }
+    try { const r = await api<{ token: string }>('POST', '/api/tokens', { label: label || 'manual token' }); setFresh(r.token); setLabel(''); tokens.reload() } finally { setBusy(false) }
   }
-  const revoke = async (id: string) => { if (confirm('Revogar este token? O MCP que usa ele para de funcionar.')) { await api('DELETE', `/api/tokens/${id}`); tokens.reload() } }
+  const revoke = async (id: string) => { if (confirm('Revoke this token? Any MCP using it stops working.')) { await api('DELETE', `/api/tokens/${id}`); tokens.reload() } }
   return (
     <>
-      <div className="page-h"><div><span className="eyebrow">acesso</span><h1>Tokens</h1></div></div>
+      <div className="page-h"><div><span className="eyebrow">access</span><h1>Tokens</h1></div></div>
       <div className="card" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div className="field" style={{ flex: 1, minWidth: 220 }}><label htmlFor="tl">Nome do token</label><input id="tl" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="ex.: CI do projeto X" /></div>
-        <button className="btn primary" onClick={create} disabled={busy}>{busy ? <Spinner /> : 'Criar token'}</button>
+        <div className="field" style={{ flex: 1, minWidth: 220 }}><label htmlFor="tl">Token name</label><input id="tl" className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. CI for project X" /></div>
+        <button className="btn primary" onClick={create} disabled={busy}>{busy ? <Spinner /> : 'Create token'}</button>
       </div>
       <AnimatePresence>
         {fresh && (
           <motion.div className="card new-token" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} style={{ marginTop: 14 }}>
-            <strong>Copie agora — ele não aparece de novo.</strong>
+            <strong>Copy it now — it won’t be shown again.</strong>
             <div style={{ marginTop: 10 }}><CopyCommand cmd={fresh} prompt="" /></div>
-            <button className="btn sm ghost" style={{ marginTop: 10 }} onClick={() => setFresh(null)}>Já copiei</button>
+            <button className="btn sm ghost" style={{ marginTop: 10 }} onClick={() => setFresh(null)}>I copied it</button>
           </motion.div>
         )}
       </AnimatePresence>
       <div className="card" style={{ marginTop: 14, padding: 10 }}>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Nome</th><th>Prefixo</th><th>Criado</th><th>Último uso</th><th /></tr></thead>
+            <thead><tr><th>Name</th><th>Prefix</th><th>Created</th><th>Last used</th><th /></tr></thead>
             <tbody>
               {(tokens.data ?? []).map((t) => (
                 <tr key={t.id} style={{ opacity: t.revoked_at ? 0.45 : 1 }}>
                   <td>{t.label}</td>
                   <td className="mono">{t.prefix}…</td>
                   <td className="faint">{ago(t.created_at)}</td>
-                  <td className="faint">{t.last_used_at ? ago(t.last_used_at) : 'nunca'}</td>
-                  <td style={{ textAlign: 'right' }}>{t.revoked_at ? <span className="pill">revogado</span> : <button className="btn sm danger" onClick={() => revoke(t.id)}>Revogar</button>}</td>
+                  <td className="faint">{t.last_used_at ? ago(t.last_used_at) : 'never'}</td>
+                  <td style={{ textAlign: 'right' }}>{t.revoked_at ? <span className="pill">revoked</span> : <button className="btn sm danger" onClick={() => revoke(t.id)}>Revoke</button>}</td>
                 </tr>
               ))}
-              {tokens.data?.length === 0 && <tr><td colSpan={5} className="muted" style={{ textAlign: 'center' }}>Nenhum token. O login pelo MCP cria um automaticamente.</td></tr>}
+              {tokens.data?.length === 0 && <tr><td colSpan={5} className="muted" style={{ textAlign: 'center' }}>No tokens. Signing in through the MCP creates one automatically.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -430,19 +430,19 @@ function Statement() {
   const { me } = useSession()
   return (
     <>
-      <div className="page-h"><div><span className="eyebrow">crédito</span><h1>Extrato</h1></div><div className="card" style={{ padding: '10px 18px' }}>Saldo <strong>{usd(me?.credit_cents)}</strong></div></div>
-      <p className="muted" style={{ marginTop: -10 }}>Cada subagente reserva o máximo que pode custar e devolve o que sobrar ao terminar. Cobrança por segundo, mínimo de 60 s.</p>
+      <div className="page-h"><div><span className="eyebrow">credit</span><h1>Billing</h1></div><div className="card" style={{ padding: '10px 18px' }}>Balance <strong>{usd(me?.credit_cents)}</strong></div></div>
+      <p className="muted" style={{ marginTop: -10 }}>Each subagent reserves the most it can cost and refunds the rest when it finishes. Billed per second, 60 s minimum.</p>
       <div className="card" style={{ padding: 10 }}>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Quando</th><th>Descrição</th><th>Subagente</th><th style={{ textAlign: 'right' }}>Valor</th></tr></thead>
+            <thead><tr><th>When</th><th>Description</th><th>Subagent</th><th style={{ textAlign: 'right' }}>Amount</th></tr></thead>
             <tbody>
               {(rows.data ?? []).map((r, i) => (
                 <tr key={i}>
-                  <td className="faint">{new Date(r.at).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td>{r.reason}</td>
+                  <td className="faint">{new Date(r.at).toLocaleString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })}</td>
+                  <td>{reasonLabel(r.reason)}</td>
                   <td className="mono faint">{r.job_id ?? ''}</td>
-                  <td className="mono" style={{ textAlign: 'right', color: r.cents >= 0 ? 'var(--ok)' : 'var(--text)' }}>{r.cents >= 0 ? '+' : '−'}{usd(Math.abs(r.cents), 4).replace('US$ ', 'US$ ')}</td>
+                  <td className="mono" style={{ textAlign: 'right', color: r.cents >= 0 ? 'var(--ok)' : 'var(--text)' }}>{r.cents >= 0 ? '+' : '−'}{usd(Math.abs(r.cents), 4)}</td>
                 </tr>
               ))}
             </tbody>
@@ -454,26 +454,26 @@ function Statement() {
 }
 
 const EVENT_LABEL: Record<string, string> = {
-  'account.created': 'Conta criada', 'job.created': 'Subagente pedido', 'job.launching': 'Máquina pedida', 'job.booting': 'Máquina ligando',
-  'job.fetching_image': 'Carregando imagem', 'job.enclave_starting': 'Criando enclave', 'job.awaiting_input': 'Enclave atestada',
-  'job.input_sealed': 'Missão selada enviada', 'job.running': 'Trabalhando', 'job.done': 'Concluído', 'job.failed': 'Falhou',
-  'job.killed': 'Encerrado por você', 'job.expired': 'Expirou', 'token.created': 'Token criado', 'token.revoked': 'Token revogado',
-  'token.device_approved': 'MCP conectado',
+  'account.created': 'Account created', 'job.created': 'Subagent requested', 'job.launching': 'Machine requested', 'job.booting': 'Machine booting',
+  'job.fetching_image': 'Loading image', 'job.enclave_starting': 'Starting enclave', 'job.awaiting_input': 'Enclave attested',
+  'job.input_sealed': 'Sealed task delivered', 'job.running': 'Working', 'job.done': 'Done', 'job.failed': 'Failed',
+  'job.killed': 'Killed by you', 'job.expired': 'Expired', 'token.created': 'Token created', 'token.revoked': 'Token revoked',
+  'token.device_approved': 'MCP connected',
 }
 
 function Activity() {
   const rows = usePoll<Ev[]>('/api/events?limit=300', 5000)
   return (
     <>
-      <div className="page-h"><div><span className="eyebrow">logs</span><h1>Atividade</h1></div></div>
+      <div className="page-h"><div><span className="eyebrow">logs</span><h1>Activity</h1></div></div>
       <div className="card" style={{ padding: 10 }}>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Quando</th><th>Evento</th><th>Subagente</th><th>Detalhe</th></tr></thead>
+            <thead><tr><th>When</th><th>Event</th><th>Subagent</th><th>Detail</th></tr></thead>
             <tbody>
               {(rows.data ?? []).map((e, i) => (
                 <tr key={i}>
-                  <td className="faint mono" style={{ whiteSpace: 'nowrap' }}>{new Date(e.at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                  <td className="faint mono" style={{ whiteSpace: 'nowrap' }}>{new Date(e.at).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</td>
                   <td>{EVENT_LABEL[e.kind] ?? e.kind}</td>
                   <td className="mono faint">{e.job_id ?? ''}</td>
                   <td className="faint" style={{ fontSize: 13 }}>{detail(e)}</td>
@@ -487,6 +487,14 @@ function Activity() {
   )
 }
 
+/** Motivos do extrato (o servidor gravava em português; os novos já vêm em inglês). */
+function reasonLabel(r: string) {
+  if (r === 'reserva' || r === 'hold') return 'Hold (max cost)'
+  if (r === 'devolução da reserva' || r === 'hold refund') return 'Hold refunded'
+  if (r === 'crédito de boas-vindas' || r === 'welcome credit') return 'Welcome credit'
+  return r.replace(/^uso /, 'usage ')
+}
+
 function detail(e: Ev) {
   const d = e.detail
   if (!d) return ''
@@ -494,6 +502,6 @@ function detail(e: Ev) {
   if (d.cost_cents != null) return `${d.secs}s · ${usd(d.cost_cents, 4)}`
   if (d.instance_type) return `${viaLabel(d.client)} → ${engineLabel(d.engine)} · ${d.ram_gb} GB · ${d.instance_type}`
   if (d.client) return d.client
-  if (d.gift_cents) return `crédito de boas-vindas ${usd(d.gift_cents)}`
+  if (d.gift_cents) return `welcome credit ${usd(d.gift_cents)}`
   return ''
 }
