@@ -3,80 +3,124 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 /**
  * "Como funciona" em 5 passos, preso na tela enquanto a pessoa rola.
- * Três planos de blocos em perspectiva: SEU NOTEBOOK → RAMWISP · ATESTAÇÃO → ENCLAVES.
- * O plano do passo atual sobe e acende; os blocos desenham o que acontece (em degraus, ~8 quadros/s).
- * O mouse acende os blocos por onde passa.
+ * Um tabuleiro de blocos em perspectiva com 3 áreas: SEU NOTEBOOK → PORTÃO DE ATESTAÇÃO → 4 MÁQUINAS.
+ * Os subagentes são fantasminhas de blocos (5×5) que andam célula a célula entre as áreas.
+ * Tudo em degraus (8 quadros/s). O mouse acende os blocos por onde passa.
  */
-const COLS = 16, ROWS = 10
+const COLS = 40, ROWS = 18
 const STEPS = [
-  { n: '01', t: 'Pedir', d: 'Seu agente chama spawn_agent. O MCP empacota uma cópia do projeto (só o que o git rastreia) e pede uma máquina.', layer: 0 },
-  { n: '02', t: 'Provar', d: 'A máquina nova mostra uma prova assinada pelo hardware da AWS com o hash do código que está rodando. O MCP confere no seu computador.', layer: 1 },
-  { n: '03', t: 'Selar', d: 'Só se a prova bater: login, projeto e tarefa são cifrados para uma chave que existe apenas dentro daquela máquina.', layer: 1 },
-  { n: '04', t: 'Rodar', d: 'Cada subagente trabalha na própria máquina, com a RAM que precisa. O seu notebook fica livre.', layer: 2 },
-  { n: '05', t: 'Evaporar', d: 'A resposta e o patch voltam cifrados para você. A máquina é destruída junto com a memória.', layer: 2 },
+  { n: '01', t: 'Pedir', d: 'Seu agente chama spawn_agent. Os 4 subagentes estão espremidos no seu notebook e a RAM dele está no vermelho. O MCP empacota uma cópia do projeto e pede uma máquina para cada um.' },
+  { n: '02', t: 'Provar', d: 'Cada máquina nova mostra uma prova assinada pelo hardware da AWS com o hash do código que está rodando. O MCP confere no seu computador.' },
+  { n: '03', t: 'Selar', d: 'A prova bateu: cada subagente sai cifrado para uma chave que só existe dentro da sua máquina e atravessa o portão.' },
+  { n: '04', t: 'Rodar', d: 'Cada subagente trabalha na própria máquina, com a RAM que precisa. O seu notebook volta para o verde.' },
+  { n: '05', t: 'Evaporar', d: 'A resposta e o patch voltam cifrados para o notebook. As máquinas são destruídas junto com a memória.' },
 ]
-const LAYERS = ['SEU NOTEBOOK', 'RAMWISP · ATESTAÇÃO', 'ENCLAVES · 4 × 8 GB']
-const LOCK = ['..####..', '.#....#.', '.#....#.', '########', '###..###', '###..###', '########']
 
-type Lv = 0 | 1 | 2 | 3   // apagado, fraco, aceso, acento
+// fantasminha 5×5: '#' corpo, '.' vazio (olhos e recortes da barra); 2 quadros de barra
+const GHOST = [['.###.', '#####', '#.#.#', '#####', '#.#.#'], ['.###.', '#####', '#.#.#', '#####', '.#.#.']]
+const CHECK = ['.....#', '....#.', '#..#..', '.##...']
+const LOCK = ['.##.', '#..#', '####', '####']
+const NOTE = { c: 1, r: 2, w: 12, h: 13 }            // área do notebook
+const GATE = { c: 17, r: 1, w: 2, h: 16 }             // portão de atestação
+const VMS = [[24, 1], [32, 1], [24, 9], [32, 9]]      // 4 máquinas 7×7
+const CRAM = [[1, 2], [6, 2], [2, 6], [7, 6]]         // espremidos no notebook (sobrepostos)
+const LANE = [[14, 2], [14, 5], [14, 9], [14, 12]]    // fila antes do portão
 
-function cellLevel(layer: number, step: number, tick: number, c: number, r: number, seed: number): Lv {
-  const active = STEPS[step].layer === layer
-  if (layer === 0) {
-    if (r === 8 && c >= 1 && c <= 5) return 3                         // barra de RAM do notebook: 31%
-    if (r === 8 && c >= 1 && c <= 14) return 1
-    if (step === 0) {                                                  // o projeto sendo empacotado
-      const inBox = c >= 5 && c <= 10 && r >= 2 && r <= 6
-      const order = (r - 2) * 6 + (c - 5)
-      if (inBox) return order < tick % 44 ? 2 : 1
-    }
-    return seed > 0.93 ? 1 : 0
-  }
-  if (layer === 1) {
-    if (step === 1) {                                                  // varredura da atestação
-      const col = tick % (COLS + 4)
-      if (c === col) return 3
-      if (c === col - 1 || c === col - 2) return 2
-      return seed > 0.8 ? 1 : 0
-    }
-    if (step === 2) {                                                  // cadeado se formando
-      const lx = c - 4, ly = r - 1
-      const on = ly >= 0 && ly < LOCK.length && lx >= 0 && lx < 8 && LOCK[ly][lx] === '#'
-      if (on) return (lx + ly * 8) < tick % 70 ? 3 : 1
-      return 0
-    }
-    return seed > (active ? 0.6 : 0.9) ? 1 : 0
-  }
-  // enclaves: 4 máquinas de 3 colunas
-  const m = Math.floor(c / 4), inM = c % 4 !== 3 && r >= 1 && r <= 8
-  if (!inM) return 0
-  if (step === 3) {
-    const h = 3 + Math.round(2.5 + 2.5 * Math.sin(tick * 0.35 + m * 1.7))   // RAM de cada máquina subindo e descendo
-    return 8 - r < h ? 3 : 1
-  }
-  if (step === 4) return seed > Math.min(1, (tick % 40) / 26) ? 2 : 0      // evaporando bloco a bloco
-  return step < 3 ? (r === 8 ? 1 : 0) : 1
+type Cell = 0 | 1 | 2 | 3 | 4 | 5 | 6
+// 0 apagado · 1 área · 2 branco · 3 ciano · 4 vermelho · 5 verde · 6 dourado
+
+function target(step: number, i: number, tick: number): [number, number] {
+  if (step === 0) return CRAM[i] as [number, number]
+  if (step === 1) return LANE[i] as [number, number]
+  if (step === 2) return tick > 6 + i * 5 ? [VMS[i][0] + 1, VMS[i][1] + 1] : (LANE[i] as [number, number])
+  return [VMS[i][0] + 1, VMS[i][1] + 1]
 }
 
-function Layer({ i, step, tick, hover, setHover }: { i: number; step: number; tick: number; hover: [number, number] | null; setHover: (h: [number, number] | null) => void }) {
+function useBoard(step: number, tick: number) {
+  const pos = useRef<[number, number][]>(CRAM.map((p) => [...p] as [number, number]))
   const seeds = useMemo(() => Array.from({ length: COLS * ROWS }, () => Math.random()), [])
-  const activeLayer = STEPS[step].layer
-  const active = activeLayer === i
-  const above = i < activeLayer          // planos acima do ativo sobem e ficam translúcidos (abre a "gaveta")
+  const last = useRef('')
+  // anda uma célula por quadro na direção do alvo (primeiro na horizontal); só avança quando o quadro muda
+  if (last.current !== `${step}:${tick}`) {
+    last.current = `${step}:${tick}`
+    pos.current = pos.current.map(([c, r], i) => {
+      const [tc, tr] = target(step, i, tick)
+      if (c !== tc) return [c + Math.sign(tc - c), r]
+      if (r !== tr) return [c, r + Math.sign(tr - r)]
+      return [c, r]
+    })
+  }
+  const g: Cell[] = new Array(COLS * ROWS).fill(0)
+  const set = (c: number, r: number, v: Cell) => { if (c >= 0 && c < COLS && r >= 0 && r < ROWS) g[r * COLS + c] = v }
+
+  // áreas
+  for (let r = NOTE.r; r < NOTE.r + NOTE.h; r++) for (let c = NOTE.c; c < NOTE.c + NOTE.w; c++) if (seeds[r * COLS + c] > 0.86) set(c, r, 1)
+  const hot = step === 0
+  const ramCells = hot ? NOTE.w : step >= 3 ? 4 : 9
+  for (let c = 0; c < NOTE.w; c++) set(NOTE.c + c, NOTE.r + NOTE.h, c < ramCells ? (hot ? 4 : 5) : 1)   // barra de RAM do notebook
+  for (let r = GATE.r; r < GATE.r + GATE.h; r++) for (let c = GATE.c; c < GATE.c + GATE.w; c++) {
+    const scan = step === 2 && (r + tick) % 6 < 2
+    set(c, r, scan ? 3 : 1)
+  }
+  if (step === 2 && tick % 4 < 2) LOCK.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') set(GATE.c - 1 + x, 7 + y, 3) }))
+  const vmOn = step >= 1 && !(step === 4 && tick > 18)
+  VMS.forEach(([c0, r0], m) => {
+    if (!vmOn) return
+    for (let r = r0; r < r0 + 7; r++) for (let c = c0; c < c0 + 7; c++) {
+      const edge = r === r0 || r === r0 + 6 || c === c0 || c === c0 + 6
+      if (step === 4 && seeds[r * COLS + c] < (tick - 8) / 10) continue          // evaporando bloco a bloco
+      if (edge) set(c, r, step === 1 && (c - c0 + tick) % 7 === 0 ? 3 : 1)
+    }
+    if (step === 1 && tick > 8 + m * 3) CHECK.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') set(c0 + 1 + x - 0, r0 + 2 + y - 1, 5) }))
+    if (step === 3) {                                                            // RAM de cada máquina subindo e descendo
+      const h = 2 + Math.round(2 + 2 * Math.sin(tick * 0.5 + m * 1.9))
+      for (let k = 0; k < 5; k++) set(c0 + 1 + k, r0 + 7, k < h ? 3 : 1)
+    }
+  })
+  // pacotes de resposta voltando
+  if (step === 4) VMS.forEach(([c0, r0], m) => {
+    const k = tick - m * 2
+    if (k < 0 || k > 22) return
+    const c = Math.max(NOTE.c + NOTE.w - 1, c0 - k), r = r0 + 3
+    set(c, r, 6)
+    if (k > 20 || c === NOTE.c + NOTE.w - 1) set(NOTE.c + 2 + m * 2, NOTE.r + 1, 6)
+  })
+  // fantasminhas
+  const ghostsOn = !(step === 4 && tick > 12)
+  pos.current.forEach(([c0, r0], i) => {
+    if (!ghostsOn) return
+    const frame = GHOST[(tick + i) % 2]
+    const color: Cell = step >= 2 && c0 > GATE.c ? 3 : step === 2 ? 3 : 2
+    frame.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch !== '#') return
+      if (step === 4 && seeds[(r0 + y) * COLS + c0 + x] < (tick - 4) / 8) return
+      set(c0 + x, r0 + y, color)
+    }))
+  })
+  return g
+}
+
+function Board({ step, tick }: { step: number; tick: number }) {
+  const g = useBoard(step, tick)
+  const [hover, setHover] = useState<number | null>(null)
+  const labels = [
+    { t: 'SEU NOTEBOOK', c: NOTE.c, r: NOTE.r - 1.4, on: step === 0 || step === 4 },
+    { t: 'ATESTAÇÃO', c: GATE.c - 2, r: GATE.r - 1.4 + 0, on: step === 1 || step === 2 },
+    { t: 'MÁQUINAS · 4 × 8 GB', c: 24, r: -0.4, on: step >= 1 && step <= 3 },
+  ]
   return (
-    <div className={`iso-layer l${i} ${active ? 'on' : ''}`}
-      style={{ transform: `translateZ(${(2 - i) * 110 + (active ? 40 : 0) + (above ? 170 : 0)}px)`, opacity: above ? 0.22 : 1 }}
-      onPointerLeave={() => setHover(null)}>
-      <span className="iso-label mono">{LAYERS[i]}</span>
-      <div className="iso-grid">
-        {seeds.map((sd, k) => {
-          const c = k % COLS, r = Math.floor(k / COLS)
-          let lv = cellLevel(i, step, tick, c, r, sd)
-          if (hover && hover[0] === i) {
-            const d = Math.hypot(hover[1] % COLS - c, Math.floor(hover[1] / COLS) - r)
-            if (d < 2.2) lv = Math.max(lv, d < 1 ? 3 : 2) as Lv
+    <div className="board" onPointerLeave={() => setHover(null)}>
+      {labels.map((l) => (
+        <span key={l.t} className={`board-label mono ${l.on ? 'on' : ''}`} style={{ left: `${(l.c / COLS) * 100}%`, top: `${(l.r / ROWS) * 100}%` }}>{l.t}</span>
+      ))}
+      <div className="board-grid">
+        {g.map((v, k) => {
+          let lv: number = v
+          if (hover !== null && v === 0) {
+            const d = Math.hypot((hover % COLS) - (k % COLS), Math.floor(hover / COLS) - Math.floor(k / COLS))
+            if (d < 2.5) lv = d < 1 ? 3 : 1
           }
-          return <i key={k} className={`b${lv}`} onPointerEnter={() => setHover([i, k])} />
+          return <i key={k} className={`c${lv}`} onPointerEnter={() => setHover(k)} />
         })}
       </div>
     </div>
@@ -88,7 +132,6 @@ export function IsoSteps() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] })
   const [step, setStep] = useState(0)
   const [tick, setTick] = useState(0)
-  const [hover, setHover] = useState<[number, number] | null>(null)
   useMotionValueEvent(scrollYProgress, 'change', (v) => setStep(Math.min(4, Math.max(0, Math.floor(v * 5)))))
   useEffect(() => { setTick(0) }, [step])
   useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 125); return () => clearInterval(t) }, [])
@@ -97,10 +140,8 @@ export function IsoSteps() {
     <div ref={ref} className="iso-sec">
       <div className="iso-sticky">
         <div className="wrap iso-grid-wrap">
-          <div className="iso-stage" aria-hidden>
-            <div className="iso">
-              {[0, 1, 2].map((i) => <Layer key={i} i={i} step={step} tick={tick} hover={hover} setHover={setHover} />)}
-            </div>
+          <div className="iso-stage" aria-label="Animação: subagentes saem do notebook, passam pelo portão de atestação, trabalham em máquinas próprias e voltam com a resposta">
+            <div className="iso"><Board step={step} tick={tick} /></div>
           </div>
           <div className="iso-steps">
             <span className="tag mono">[ Como funciona, passo a passo ]</span>
