@@ -11,7 +11,8 @@ import { engineCredential } from "./creds.js";
 export const FINAL = ["done", "failed", "killed", "expired"];
 const sealers = new Map();          // id -> Promise (selagem em andamento neste processo)
 const sealErrors = new Map();
-const collecting = new Map();       // id -> Promise (abertura em andamento: duas chamadas juntas não disputam a chave)
+const collecting = new Map();
+const watchers = new Map();        // id -> Promise (recolhe sozinho quando termina)       // id -> Promise (abertura em andamento: duas chamadas juntas não disputam a chave)
 
 export class LoginRequired extends Error {}
 
@@ -69,7 +70,7 @@ export async function spawnAgent(o) {
   const job = await call("POST", "/api/jobs", { engine, ram_gb: o.ram_gb ?? 2, timeout_s: timeout,
     nonce: nonce.toString("base64"), label: o.label });
   writeSecret(keyFile(job.id), JSON.stringify({ id: job.id, priv: exportKey(priv), nonce: nonce.toString("base64"), engine,
-    workspace: ws?.root }));
+    workspace: ws?.root, pid: process.pid }));
   const payload = Buffer.from(JSON.stringify({ engine, model: o.model, mission: o.mission, turns: o.max_turns ?? 20,
     timeout, auth: { kind: cred.kind, value: cred.value }, ...(ws ? { workspace_tgz: ws.tgz.toString("base64") } : {}) }));
   const p = sealWhenReady(job.id, priv, nonce, payload).finally(() => { payload.fill(0); sealers.delete(job.id); });
@@ -200,6 +201,63 @@ async function fetchResult(id) {
   rmSync(f, { force: true });
   pruneResults();
   return res;
+}
+
+const nap = (ms) => new Promise((r) => setTimeout(r, ms).unref());
+
+/**
+ * Recolhe o resultado sozinho quando o subagente termina (guarda a cópia local), sem ninguém bloqueado esperando.
+ * Os timers não seguram o processo: no CLI, sair continua saindo.
+ */
+export function watch(id) {
+  if (watchers.has(id)) return;
+  const p = (async () => {
+    const until = Date.now() + 3 * 3600_000;
+    while (Date.now() < until) {
+      await nap(Number(process.env.WISP_WATCH_MS ?? 10_000));
+      const r = await result(id).catch(() => null);
+      if (r && (FINAL.includes(r.status) || r.error)) return;
+    }
+  })().finally(() => watchers.delete(id));
+  watchers.set(id, p);
+}
+
+/**
+ * Ao subir o MCP: volta a vigiar os subagentes desta máquina que ainda têm chave (sessão anterior caiu, etc.).
+ * Um job que nunca foi selado e cujo processo selador morreu (a sessão acabou antes da máquina subir) não tem como
+ * rodar: a missão só existia na memória daquele processo. Esse é derrubado na hora, para não ficar cobrando à toa.
+ * Se o selador está vivo (outra sessão, ou o ajudante do Codex, que sobe o próprio MCP), só vigia.
+ */
+export function resumeWatches() {
+  let names = [];
+  try { names = readdirSync(ensureDir("jobs")).filter((n) => n.endsWith(".json")); } catch { return; }
+  for (const n of names) {
+    const id = n.slice(0, -5);
+    if (sealers.has(id) || watchers.has(id)) continue;
+    let k;
+    try { k = JSON.parse(readFileSync(join(ensureDir("jobs"), n), "utf8")); } catch { continue; }
+    if (k.enclave_pub || alive(k.pid)) watch(id);
+    else if (getToken()) {
+      killAgent(id).then(() => process.stderr.write(`ramwisp: ${id} was never delivered (the session ended first); stopped it\n`),
+        () => {});
+    }
+  }
+}
+
+function alive(pid) {
+  if (!pid) return false;
+  try { process.kill(pid, 0); return true; } catch (e) { return e.code === "EPERM"; }
+}
+
+/** Espera vários de uma vez: volta quando todos terminarem (ou no limite), com o resultado de cada um. */
+export async function waitAgents(ids, maxWaitS = 900) {
+  const until = Date.now() + maxWaitS * 1000;
+  for (;;) {
+    const agents = await Promise.all(ids.map((id) => result(id).catch((e) => ({ id, error: e.message }))));
+    const done = agents.every((r) => FINAL.includes(r.status) || r.error);
+    if (done || Date.now() > until) return { all_done: done, agents };
+    await nap(3000);
+  }
 }
 
 export async function waitAgent(id, maxWaitS = 900) {

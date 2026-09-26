@@ -1,10 +1,10 @@
 // Servidor MCP (stdio, JSON-RPC por linha). Sem dependências.
 import { createInterface } from "node:readline";
-import { API, getToken, setClient, startLogin } from "./account.js";
-import { LoginRequired, killAgent, listAgents, result, spawnAgent, waitAgent } from "./client.js";
+import { API, getClient, getToken, setClient, startLogin } from "./account.js";
+import { LoginRequired, killAgent, listAgents, result, resumeWatches, spawnAgent, waitAgent, waitAgents, watch } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.7";
+const VERSION = "0.1.8";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
@@ -15,11 +15,21 @@ When to use: the user asks for remote subagents / "run it on ramwisp" / "spin up
 independent, heavy tasks (builds, test suites, long research) that can run in parallel elsewhere.
 
 How to use it well:
-- Parallel: call spawn_agent for every task first, then wait_agent for each id.
+- Parallel: call spawn_agent for every task first, then wait for all of them with ONE wait_agent call (ids: [...]).
+- Don't block the main conversation while subagents run (minutes to an hour). This MCP collects each result by itself
+  when it finishes and keeps it on this machine for 7 days, so nothing is lost if nobody is waiting. By default,
+  hand the waiting to a small background helper and keep working with the user:
+  - Claude Code: launch a background Agent with model "sonnet" whose only job is to call wait_agent with the ids
+    (repeat while it returns running) and report the full result text back. It must not spawn or kill anything.
+  - Codex: spawn a sub-agent with model "gpt-6-luna" for that same job, then keep working and check on it later.
+  - Without sub-agents: carry on with other work and call agent_result (instant) now and then.
+  Only wait in the main thread yourself if the user explicitly asks to wait, or if this session is about to end
+  (one-shot runs like \`claude -p\` or \`codex exec\`): the task is sent from this process once the machine is up,
+  so ending the session before status is "running" stops the subagent.
 - To work on the user's code, pass workspace (e.g. the project directory): an encrypted copy is sent,
   the subagent works on it and the changes come back as a patch (apply it with the "apply" command after reviewing).
   Without workspace the machine starts empty: put all context in the mission. It has internet (HTTPS) but no git/SSH access of the user.
-- A machine takes ~1-3 min to start; wait_agent waits up to 15 min per call (call it again if it returns running).
+- A machine takes ~1-3 min to start; wait_agent waits up to max_wait_s per call (call it again if it returns running).
 - Always collect with wait_agent or agent_result: the answer can only be decrypted on this machine.
   Once opened, the result stays readable here for 7 days: calling wait_agent/agent_result again returns the same answer,
   so a wait that ran in the background never loses it. While running, only status, RAM and cost are visible.
@@ -42,8 +52,10 @@ const TOOLS = [
       label: { type: "string", description: "Short label VISIBLE in the dashboard (don't put anything sensitive)." } } } },
   { name: "wait_agent", annotations: { title: "Wait for a subagent's result", readOnlyHint: true, openWorldHint: false },
     description: "Wait for the subagent to finish and return the result (field result = the answer). Safe to call again: a result already opened on this machine is returned again.",
-    inputSchema: { type: "object", required: ["id"], properties: {
-      id: { type: "string" }, max_wait_s: { type: "integer", default: 900, maximum: 1800 } } } },
+    inputSchema: { type: "object", properties: {
+      id: { type: "string", description: "One subagent id." },
+      ids: { type: "array", items: { type: "string" }, description: "Several ids: returns when all of them finish (or at max_wait_s), with each result." },
+      max_wait_s: { type: "integer", default: 900, maximum: 1800 } } } },
   { name: "agent_result", annotations: { title: "Read a subagent's result", readOnlyHint: true, openWorldHint: false },
     description: "Result without waiting: returns the answer or the current status (running, RAM in use).",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
@@ -68,6 +80,19 @@ async function loginMessage() {
     `No account yet? Create one there, with free credit. Then repeat the request.`;
 }
 
+/** O que fazer depois do spawn, no idioma de cada cliente: esperar num ajudante pequeno, não na conversa principal. */
+export function nextStep(id, client = getClient()) {
+  const how = /codex/i.test(client)
+    ? `use collaboration.spawn_agent to start a sub-agent with model "gpt-6-luna" whose only job is to call the ramwisp wait_agent tool`
+    : /claude/i.test(client)
+      ? `launch a background Agent with model "sonnet" whose only job is to call mcp__ramwisp__wait_agent`
+      : `use a small background helper to call wait_agent`;
+  return `Running. Don't block the user: ${how} with ids ["${id}"] (plus any other ids you just spawned), ` +
+    `repeating while it returns running, and report the full result. If you can't, call agent_result later. ` +
+    `Keep this session open at least until status is "running": the task is still being sent from here, ` +
+    `and if the session ends first the subagent is stopped. After that the result is collected and kept on this machine automatically.`;
+}
+
 async function runTool(name, a) {
   if (name === "wisp_login") {
     if (getToken()) return { ok: true, msg: `already connected to ${API}` };
@@ -76,8 +101,11 @@ async function runTool(name, a) {
   }
   const attempt = () => {
     switch (name) {
-      case "spawn_agent": return spawnAgent(a);
-      case "wait_agent": return waitAgent(a.id, a.max_wait_s ?? 900);
+      case "spawn_agent": return spawnAgent(a).then((r) => { watch(r.id); return { ...r, next: nextStep(r.id) }; });
+      case "wait_agent":
+        if (Array.isArray(a.ids) && a.ids.length) return waitAgents(a.ids.map(String), a.max_wait_s ?? 900);
+        if (!a.id) throw new Error("pass id or ids");
+        return waitAgent(a.id, a.max_wait_s ?? 900);
       case "agent_result": return result(a.id);
       case "kill_agent": return killAgent(a.id);
       case "list_agents": return listAgents();
@@ -96,6 +124,7 @@ async function runTool(name, a) {
 }
 
 export function serve() {
+  resumeWatches();
   const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
   const rl = createInterface({ input: process.stdin });
   rl.on("line", async (line) => {
