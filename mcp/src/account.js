@@ -41,6 +41,7 @@ export function logout() {
 let client = "cli";
 /** Quem está usando o MCP (vem do clientInfo do initialize: "claude-code", "codex-mcp-client"…). */
 export function setClient(name) { if (name) client = String(name).slice(0, 60); }
+export const getClient = () => client;
 
 export async function call(method, path, body, { token = getToken(), timeoutMs = 30_000 } = {}) {
   const r = await fetch(API + path, {
