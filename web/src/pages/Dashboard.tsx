@@ -58,7 +58,7 @@ export default function Dashboard() {
               </>}
             </NavLink>
           ))}
-          <NavLink to="/seguranca"><Icon d={I.shield} />Transparência</NavLink>
+          <NavLink to="/transparencia"><Icon d={I.shield} />Transparência</NavLink>
         </nav>
         <div className="credit-mini">
           <div className="faint" style={{ fontSize: 12 }}>Saldo</div>

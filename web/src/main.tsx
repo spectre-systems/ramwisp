@@ -23,6 +23,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/entrar" element={<AuthPage mode="login" />} />
               <Route path="/criar-conta" element={<AuthPage mode="signup" />} />
               <Route path="/ativar" element={<Activate />} />
+              <Route path="/transparencia" element={<Security />} />
               <Route path="/seguranca" element={<Security />} />
               <Route path="/painel/*" element={<Dashboard />} />
               <Route path="*" element={<Landing />} />

@@ -11,11 +11,11 @@ import { Ghost } from './Ghost'
  */
 const ACTS = [
   { k: 'falta', tab: 'O problema', ms: 5200,
-    caption: <>Quatro subagentes em paralelo disputando os <b>16 GB</b> do seu computador com o editor e o navegador. Tudo trava e um deles fica <b>na fila</b>.</> },
+    caption: <>Cada subagente que roda <b>testes, build ou navegador</b> come gigas da sua máquina. Com quatro em paralelo, os <b>16 GB</b> acabam: tudo trava e um fica <b>na fila</b>.</> },
   { k: 'wisp', tab: 'Com wisp', ms: 5200,
     caption: <>Cada subagente ganha uma <b>máquina própria na nuvem</b>, com a RAM que precisa. Todos rodam ao mesmo tempo e o seu computador fica livre.</> },
   { k: 'evapora', tab: 'Terminou', ms: 4600,
-    caption: <>A resposta volta para você. A máquina <b>evapora</b>: a sua chave é apagada, a memória destruída e ela é desligada.</> },
+    caption: <>A resposta e as mudanças voltam para você. As máquinas <b>evaporam</b>: nada fica ligado, nada fica guardado.</> },
 ] as const
 
 const GHOSTS = [0, 1, 2, 3]
@@ -49,9 +49,9 @@ export function HeroStory() {
           <div className="story-cloud">
             {GHOSTS.map((g) => (
               <motion.div key={g} className="vm"
-                animate={{ opacity: k === 'falta' ? 0.18 : k === 'evapora' ? 0 : 1, y: k === 'evapora' ? -18 : 0, filter: k === 'evapora' ? 'blur(6px)' : 'blur(0px)' }}
+                animate={{ opacity: k === 'falta' ? 0.35 : k === 'evapora' ? 0 : 1, y: k === 'evapora' ? -18 : 0, filter: k === 'evapora' ? 'blur(6px)' : 'blur(0px)' }}
                 transition={{ duration: k === 'evapora' ? 1.4 : 0.6, delay: k === 'evapora' ? 0.9 + g * 0.12 : g * 0.08 }}>
-                <span className="vm-label mono">máquina {g + 1} · 8 GB</span>
+                <span className="vm-label mono">{k === 'falta' ? 'nuvem · livre' : `máquina ${g + 1} · 8 GB`}</span>
                 <div className="vm-slot">
                   {k !== 'falta' && (
                     <motion.div layoutId={`g${g}`} transition={spring}
@@ -80,6 +80,7 @@ export function HeroStory() {
             <div className="laptop2-body">
               <div className="you-block">editor + navegador</div>
               <div className="cram">
+                {k === 'falta' && <span className="cram-tag mono">testes · build · navegador</span>}
                 {k === 'falta' && GHOSTS.slice(0, 3).map((g, i) => (
                   <motion.div key={g} layoutId={`g${g}`} transition={spring} className="crammed"
                     initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0, scaleX: 1.12, scaleY: 0.8 }}
@@ -90,7 +91,7 @@ export function HeroStory() {
               </div>
               {k === 'evapora' && (
                 <motion.ul className="done-list" initial="h" animate="s" variants={{ s: { transition: { staggerChildren: 0.35, delayChildren: 1.1 } } }}>
-                  {['4 respostas recebidas', 'chaves apagadas', 'máquinas desligadas'].map((t) => (
+                  {['4 respostas recebidas', 'máquinas destruídas', 'nada ficou para trás'].map((t) => (
                     <motion.li key={t} variants={{ h: { opacity: 0, x: -8 }, s: { opacity: 1, x: 0 } }}>✓ {t}</motion.li>
                   ))}
                 </motion.ul>

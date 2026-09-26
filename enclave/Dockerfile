@@ -3,7 +3,7 @@
 # Versões fixas: mudar qualquer uma muda o PCR0 (e exige publicar o novo em mcp/pcrs.json).
 FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl git coreutils iproute2 python3 python3-cryptography procps \
+      ca-certificates curl git coreutils iproute2 python3 python3-cryptography procps nodejs npm \
  && rm -rf /var/lib/apt/lists/*
 ARG CLAUDE_VERSION=2.1.283
 RUN HOME=/opt/claude bash -c "curl -fsSL https://claude.ai/install.sh | bash -s ${CLAUDE_VERSION}" \

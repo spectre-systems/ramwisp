@@ -8,10 +8,10 @@ export function Nav() {
     <nav className="nav">
       <Logo />
       <div className="links">
-        <a href="/#como">Como funciona</a>
+        <a href="/#dia-a-dia">Como funciona</a>
         <a href="/#privacidade">Privacidade</a>
         <a href="/#precos">Preços</a>
-        <Link to="/seguranca">Transparência</Link>
+        <Link to="/transparencia">Transparência</Link>
       </div>
       <span className="spacer" />
       <ThemeToggle />
@@ -36,12 +36,12 @@ export function Footer() {
           </p>
         </div>
         <div className="footer-cols">
-          <div><strong>Produto</strong><a href="/#como">Como funciona</a><a href="/#precos">Preços</a><Link to="/criar-conta">Criar conta</Link></div>
-          <div><strong>Confiança</strong><Link to="/seguranca">Transparência</Link><a href="/#privacidade">O que vemos</a></div>
+          <div><strong>Produto</strong><a href="/#dia-a-dia">Como funciona</a><a href="/#precos">Preços</a><Link to="/criar-conta">Criar conta</Link></div>
+          <div><strong>Confiança</strong><Link to="/transparencia">Transparência</Link><a href="/#privacidade">O que vemos</a></div>
         </div>
       </div>
       <div className="wrap faint" style={{ fontSize: 13, paddingTop: 24, borderTop: '1px solid var(--line)' }}>
-        © {new Date().getFullYear()} Spectre Systems · wisp
+        © {new Date().getFullYear()} Spectre Systems · ramwisp
       </div>
     </footer>
   )

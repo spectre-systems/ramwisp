@@ -5,6 +5,7 @@ import { api, codexToml, installCmd, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
 import { HeroStory } from '../components/HeroStory'
 import { ControlPreview, Evaporate, KeyVault, TerminalDemo } from '../components/Sections'
+import { WispField } from '../components/WispField'
 import { CopyCommand, Reveal } from '../components/ui'
 
 const ease = [0.16, 1, 0.3, 1] as const
@@ -28,6 +29,8 @@ export default function Landing() {
 
       {/* 1 · O que é isso? É comigo? — problema e solução na primeira tela */}
       <section className="hero2">
+        <WispField density={0.8} />
+        <div className="hero-fade" />
         <div className="wrap hero2-grid">
           <div>
             <motion.span className="eyebrow" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease }}>
@@ -37,8 +40,8 @@ export default function Landing() {
               <motion.span className="problem" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease }}>
                 Seus subagentes não cabem na sua RAM.
               </motion.span>
-              <motion.span className="solution grad" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.25, ease }}>
-                Dê uma máquina para cada um.
+              <motion.span className="solution" initial={{ opacity: 0, y: 24, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 1.1, delay: 0.25, ease }}>
+                Dê uma máquina para <span className="serif grad">cada um.</span>
               </motion.span>
             </h1>
             <motion.p className="sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9, delay: 0.45 }}>
@@ -53,7 +56,7 @@ export default function Landing() {
             </motion.div>
             <motion.div className="hero-cta" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, ease }}>
               <Link className="btn primary lg" to="/criar-conta">Testar grátis</Link>
-              <a className="btn lg" href="#dia-a-dia">Ver um exemplo real</a>
+              <a className="btn lg" href="#dia-a-dia">Ver como funciona</a>
             </motion.div>
           </div>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.3, ease }}>
@@ -67,7 +70,7 @@ export default function Landing() {
         <div className="wrap split">
           <Reveal>
             <Q n="01" q="como fica no seu dia a dia" />
-            <h2 className="h2">Você pede em português. <span className="grad">Ele divide o trabalho.</span></h2>
+            <h2 className="h2">Você pede. <span className="serif grad">Quatro máquinas trabalham.</span></h2>
             <ul className="bullets">
               <li><b>Você continua no seu terminal.</b> O ramwisp é um MCP: o seu Claude Code ou Codex ganha a ferramenta de subir subagentes e decide quando usar.</li>
               <li><b>O projeto vai junto.</b> Uma cópia cifrada do repositório, só com o que o git rastreia. O que está no <code>.gitignore</code>, como o <code>.env</code>, nunca sai.</li>
@@ -83,7 +86,7 @@ export default function Landing() {
         <div className="wrap">
           <Reveal>
             <Q n="02" q="e a sua chave?" />
-            <h2 className="h2">Sua chave viaja trancada. <span className="grad">Nem nós conseguimos abrir.</span></h2>
+            <h2 className="h2">Sua chave viaja trancada. <span className="serif grad">Nem nós abrimos.</span></h2>
             <p className="lead muted">
               Cada subagente roda numa <b>máquina lacrada</b> (AWS Nitro Enclave). Antes de mandar qualquer coisa, o MCP confere no
               seu computador uma prova assinada pelo hardware de que a máquina roda exatamente o código publicado. Só então tranca
@@ -94,24 +97,18 @@ export default function Landing() {
           <Reveal delay={0.15}>
             <div className="grid-3 trust3">
               <div><b>Só o token de acesso</b><p className="muted small">O de renovação nunca sai do seu computador. O acesso expira sozinho e a sua sessão local nunca cai.</p></div>
-              <div><b>Mudou o código, o MCP recusa</b><p className="muted small">Se alguém trocar o software da máquina, a prova deixa de bater e nada é enviado. <Link to="/seguranca" style={{ color: 'var(--wisp)' }}>Como conferimos</Link>.</p></div>
+              <div><b>Mudou o código, o MCP recusa</b><p className="muted small">Se alguém trocar o software da máquina, a prova deixa de bater e nada é enviado. <Link to="/transparencia" style={{ color: 'var(--wisp)' }}>Como conferimos</Link>.</p></div>
               <div><b>O que nós vemos</b><p className="muted small">Só o que aparece no seu painel: horário, duração, RAM, custo e os domínios acessados. Nunca o conteúdo.</p></div>
             </div>
           </Reveal>
-        </div>
-      </section>
-
-      {/* 4 · E depois? Fica alguma coisa? */}
-      <section className="section">
-        <div className="wrap split reverse">
-          <Reveal delay={0.1}><Evaporate /></Reveal>
-          <Reveal>
-            <Q n="03" q="e quando termina?" />
-            <h2 className="h2">Entregou, <span className="grad">evaporou.</span></h2>
-            <p className="lead muted">
-              Não existe máquina parada com a sua chave dentro. Assim que você recebe o resultado, a máquina é destruída junto com a memória.
-              Se você esquecer um subagente rodando, ele evapora sozinho no tempo máximo da tarefa.
-            </p>
+          <Reveal delay={0.1}>
+            <div className="evap-row">
+              <Evaporate />
+              <div>
+                <h3 className="h3">Entregou, <span className="serif grad">evaporou.</span></h3>
+                <p className="muted">Não existe máquina parada com a sua chave dentro. Recebeu o resultado, a máquina é destruída com a memória. Esqueceu um subagente rodando? Ele evapora sozinho no tempo máximo da tarefa.</p>
+              </div>
+            </div>
           </Reveal>
         </div>
       </section>
@@ -120,8 +117,8 @@ export default function Landing() {
       <section id="precos" className="section">
         <div className="wrap split">
           <Reveal>
-            <Q n="04" q="quem controla e quanto custa" />
-            <h2 className="h2">Você vê cada um. <span className="grad">Você desliga quando quiser.</span></h2>
+            <Q n="03" q="quem controla e quanto custa" />
+            <h2 className="h2">Você vê cada um. <span className="serif grad">E desliga quando quiser.</span></h2>
             <ul className="bullets">
               <li><b>Painel ao vivo:</b> cada subagente com a RAM em tempo real e um botão para encerrar.</li>
               <li><b>Nunca passa do seu saldo:</b> cada subagente reserva o máximo que pode custar e devolve a sobra ao terminar.</li>
@@ -142,8 +139,8 @@ export default function Landing() {
       <section id="comecar" className="section">
         <div className="wrap" style={{ maxWidth: 860 }}>
           <Reveal>
-            <Q n="05" q="como começar" />
-            <h2 className="h2">Um comando. <span className="grad">Um clique no navegador.</span></h2>
+            <Q n="04" q="como começar" />
+            <h2 className="h2">Um comando. <span className="serif grad">Um clique.</span></h2>
           </Reveal>
           <Reveal delay={0.05}>
             <ol className="start">
@@ -160,7 +157,7 @@ export default function Landing() {
       {/* 7 · Objeções que sobraram */}
       <section className="section">
         <div className="wrap faq">
-          <Reveal><Q n="06" q="perguntas" /><h2 className="h2">Antes de testar</h2></Reveal>
+          <Reveal><Q n="05" q="perguntas" /><h2 className="h2">Antes de testar</h2></Reveal>
           {FAQ.map(([q, a], i) => (
             <Reveal key={q} delay={i * 0.03}>
               <details className="faq-item"><summary>{q}</summary><p className="muted">{a}</p></details>
@@ -183,7 +180,10 @@ export default function Landing() {
 }
 
 const FAQ: [string, string][] = [
-  ['O que a máquina tem instalado?', 'Claude Code, Codex, git, Python 3 e curl. O subagente tem internet (HTTPS) e pode instalar o que precisar com pip ou npm, como faria no seu computador.'],
+  ['Por que um subagente gasta tanta RAM?', 'O modelo roda na API, mas o que o subagente faz roda na máquina: instalar dependências, compilar, rodar a suíte de testes, abrir um navegador. É isso que come gigas, e é isso que vai para a máquina dele.'],
+  ['O que a máquina tem instalado?', 'Claude Code, Codex, git, Python 3, Node.js e npm, curl. Tem internet (HTTPS) e pode instalar o que precisar com pip ou npm. Não tem Docker nem acesso à sua rede local, então nada de banco local ou serviços privados.'],
+  ['O subagente pode dar commit ou push?', 'Não. Ele não recebe suas credenciais de git nem SSH. As mudanças voltam como patch e quem decide aplicar é você (ou o seu agente).'],
+  ['E se eu mexer no código enquanto ele trabalha?', 'O patch é gerado sobre a cópia que foi. Se você mudou as mesmas linhas, o git apply avisa; use git apply -3 para resolver como um merge normal.'],
   ['Meu código fica guardado em algum lugar?', 'Não. A cópia vai cifrada direto para dentro da máquina lacrada, e o nosso servidor só guarda bytes ilegíveis até a máquina buscar. Depois de rodar, a máquina é destruída com tudo o que tinha em memória.'],
   ['Por que demora 2–3 minutos para começar?', 'É uma máquina nova, só sua, criada para a tarefa. Por isso o ramwisp vale para trabalhos de minutos a horas, em paralelo: suítes de teste, refatorações, pesquisa longa.'],
   ['Posso usar o meu login do Claude ou do ChatGPT?', 'Sim, para uso pessoal: o MCP usa o login que já está no seu computador (só o token de acesso). Para uso comercial ou em equipe, use uma chave de API: é só colocar ANTHROPIC_API_KEY ou OPENAI_API_KEY no env do MCP.'],
