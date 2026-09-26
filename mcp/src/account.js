@@ -4,7 +4,9 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync }
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 
-export const API = (process.env.WISP_API ?? "https://ramwisp.duckdns.org").replace(/\/$/, "");
+export const API = (process.env.WISP_API ?? "https://ramwisp.com").replace(/\/$/, "");
+// endereços antigos do mesmo serviço: um login salvo com eles continua valendo
+const SAME_SERVICE = new Set(["https://ramwisp.com", "https://ramwisp.duckdns.org"]);
 export const DIR = process.env.WISP_CONFIG_DIR ?? join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "wisp");
 const CRED = join(DIR, "credentials.json");
 
@@ -23,7 +25,7 @@ export function getToken() {
   if (process.env.WISP_TOKEN) return process.env.WISP_TOKEN;
   try {
     const c = JSON.parse(readFileSync(CRED, "utf8"));
-    return c.api === API ? c.token : null;
+    return c.api === API || (SAME_SERVICE.has(c.api) && SAME_SERVICE.has(API)) ? c.token : null;
   } catch { return null; }
 }
 

@@ -9,4 +9,4 @@ credential for that enclave only.
 claude mcp add --scope user ramwisp -- npx -y ramwisp@latest
 ```
 
-On first use it opens your browser so you can sign in. More at https://ramwisp.duckdns.org
+On first use it opens your browser so you can sign in. More at https://ramwisp.com

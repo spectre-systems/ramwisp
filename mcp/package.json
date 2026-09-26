@@ -1,6 +1,6 @@
 {
   "name": "ramwisp",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "ramwisp: Claude Code and Codex subagents on their own cloud machines (AWS Nitro Enclaves), with your own subscription. MCP + CLI.",
   "type": "module",
   "bin": {
@@ -28,5 +28,5 @@
     "subagents",
     "nitro-enclaves"
   ],
-  "homepage": "https://ramwisp.duckdns.org"
+  "homepage": "https://ramwisp.com"
 }
