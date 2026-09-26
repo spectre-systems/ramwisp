@@ -172,9 +172,63 @@ def build_command(job):
     return env, cmd
 
 
+GIT_ENV = {"GIT_AUTHOR_NAME": "wisp", "GIT_AUTHOR_EMAIL": "wisp@localhost",
+           "GIT_COMMITTER_NAME": "wisp", "GIT_COMMITTER_EMAIL": "wisp@localhost"}
+MAX_PATCH = 8 * 1024 * 1024
+JUNK = ["__pycache__/", "*.pyc", ".pytest_cache/", "node_modules/", ".venv/", "venv/", "dist/", "build/",
+        ".next/", "target/", ".cache/", "coverage/", ".mypy_cache/", ".ruff_cache/", ".DS_Store"]
+WORKSPACE_NOTE = ("\n\n---\nO projeto do usuário está em ~/work (uma cópia; rode comandos lá). "
+                  "Tudo o que você mudar em ~/work volta para ele como patch ao final.")
+
+
+def as_agent(pw, argv, cwd, **kw):
+    def drop():
+        os.setgroups([]); os.setgid(pw.pw_gid); os.setuid(pw.pw_uid)
+    env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": pw.pw_dir, **GIT_ENV}
+    return subprocess.run(argv, cwd=cwd, env=env, preexec_fn=drop, capture_output=True, **kw)
+
+
+def prepare_workspace(job, pw):
+    """Extrai a cópia do projeto (veio cifrada junto com a missão) e marca o ponto de partida no git."""
+    import base64, io, tarfile
+    blob = job.pop("workspace_tgz", None)
+    if not blob:
+        return None
+    work = os.path.join(pw.pw_dir, "work")
+    os.makedirs(work, exist_ok=True)
+    with tarfile.open(fileobj=io.BytesIO(base64.b64decode(blob)), mode="r:gz") as tf:
+        safe = []
+        for m in tf.getmembers():                       # só arquivos e pastas, sem caminho absoluto, ../ ou links
+            name = os.path.normpath(m.name)
+            if (m.isfile() or m.isdir()) and not name.startswith(("/", "..")) and ".." not in name.split(os.sep):
+                m.mode = (m.mode & 0o755) | 0o600 if m.isfile() else 0o755
+                safe.append(m)
+        tf.extractall(work, members=safe)
+    subprocess.run(["chown", "-R", f"{pw.pw_uid}:{pw.pw_gid}", work], check=True)
+    as_agent(pw, ["git", "init", "-q"], work)
+    # artefatos gerados pelo próprio subagente (testes, builds) não voltam no patch
+    with open(os.path.join(work, ".git", "info", "exclude"), "a") as f:
+        f.write("\n".join(JUNK) + "\n")
+    for argv in (["git", "add", "-A"], ["git", "commit", "-qm", "wisp: base", "--allow-empty"]):
+        as_agent(pw, argv, work)
+    return work
+
+
+def collect_patch(work, pw):
+    as_agent(pw, ["git", "add", "-A"], work)
+    diff = as_agent(pw, ["git", "diff", "--cached", "--binary", "HEAD"], work).stdout
+    stat = as_agent(pw, ["git", "diff", "--cached", "--stat", "HEAD"], work).stdout.decode("utf-8", "replace")
+    if len(diff) > MAX_PATCH:
+        return {"patch": None, "patch_stat": stat[-4000:], "patch_error": f"patch grande demais ({len(diff) // 1024} KB)"}
+    return {"patch": diff.decode("utf-8", "replace") if diff else "", "patch_stat": stat[-4000:]}
+
+
 def run_agent(job, ctl):
-    extra, cmd = build_command(job)
     pw = pwd.getpwnam(AGENT_USER)
+    work = prepare_workspace(job, pw)
+    if work:
+        job["mission"] = job["mission"] + WORKSPACE_NOTE
+    extra, cmd = build_command(job)
     proxy = f"http://{PROXY[0]}:{PROXY[1]}"
     env = {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": pw.pw_dir, "USER": AGENT_USER, "LANG": "C.UTF-8",
            "DISABLE_AUTOUPDATER": "1", "MISSAO": job["mission"],
@@ -184,7 +238,7 @@ def run_agent(job, ctl):
            "NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1", **extra}
 
     def drop():
-        os.setgroups([]); os.setgid(pw.pw_gid); os.setuid(pw.pw_uid); os.chdir(pw.pw_dir)
+        os.setgroups([]); os.setgid(pw.pw_gid); os.setuid(pw.pw_uid); os.chdir(work or pw.pw_dir)
 
     started = time.time()
     p = subprocess.Popen(["sh", "-c", cmd], env=env, preexec_fn=drop,
@@ -206,9 +260,12 @@ def run_agent(job, ctl):
         time.sleep(5)
     for r in readers:
         r.join()
-    return {"stdout": (out[0] if out else b"").decode("utf-8", "replace"),
+    result = {"stdout": (out[0] if out else b"").decode("utf-8", "replace"),
             "stderr_tail": (err[0] if err else b"").decode("utf-8", "replace")[-4000:],
             "exit_code": p.returncode, "duration_s": round(time.time() - started, 1), "peak_mem_mib": peak}
+    if work:
+        result.update(collect_patch(work, pw))
+    return result
 
 
 # ---------------------------------------------------------------- ciclo de vida

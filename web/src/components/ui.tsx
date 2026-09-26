@@ -1,25 +1,10 @@
 import { animate, motion, useInView, useMotionValue, useTransform } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { Wordmark } from './Ghost'
 
-export function Logo({ size = 26 }: { size?: number }) {
-  return (
-    <Link to="/" className="logo" aria-label="wisp, início">
-      <svg viewBox="0 0 64 64" style={{ width: size, height: size }} aria-hidden>
-        <defs>
-          <radialGradient id="lg" cx="50%" cy="38%" r="62%">
-            <stop offset="0" stopColor="#f0feff" />
-            <stop offset=".45" stopColor="var(--wisp)" />
-            <stop offset="1" stopColor="var(--wisp-2)" stopOpacity=".15" />
-          </radialGradient>
-        </defs>
-        <path d="M32 6c11 0 18 8.5 18 19.5 0 8.5-5 13-5 19 0 5 3.5 7.5 3.5 10-5 0-8.5-2.5-11-6-2.5 3.5-6 6-11 6 1.2-2.5 3.8-5 3.8-10 0-6-6.3-10.5-6.3-19C14 14.5 21 6 32 6z" fill="url(#lg)" />
-        <circle cx="27" cy="26" r="2.8" fill="var(--bg)" />
-        <circle cx="37.5" cy="26" r="2.8" fill="var(--bg)" />
-      </svg>
-      wisp
-    </Link>
-  )
+export function Logo({ size = 22 }: { size?: number }) {
+  return <Link to="/" className="logo" aria-label="wisp, início"><Wordmark size={size} /></Link>
 }
 
 export function CopyCommand({ cmd, prompt = '$' }: { cmd: string; prompt?: string }) {

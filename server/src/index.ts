@@ -201,7 +201,7 @@ app.post("/api/jobs/:id/input", requireUser, async (c) => {
   if (j.input_sealed) return c.json({ error: "entrada já enviada" }, 409);
   const b = await c.req.json();
   const s = b.sealed;
-  if (!s?.c_pub || !s?.iv || !s?.ct || JSON.stringify(s).length > 2_000_000) return c.json({ error: "entrada selada inválida" }, 400);
+  if (!s?.c_pub || !s?.iv || !s?.ct || JSON.stringify(s).length > 25_000_000) return c.json({ error: "entrada selada inválida" }, 400);
   db.prepare("UPDATE jobs SET input_sealed = ? WHERE id = ?").run(JSON.stringify({ c_pub: s.c_pub, iv: s.iv, ct: s.ct }), j.id);
   event(j.user_id, j.id, "job.input_sealed");
   return c.json({ ok: true });

@@ -16,8 +16,9 @@ independentes e pesadas (build, testes, pesquisa longa) que podem rodar em paral
 
 Como usar bem:
 - Paralelo: chame spawn_agent para todas as missões primeiro, depois wait_agent para cada id.
-- A missão precisa ser autocontida: a enclave começa vazia, não vê arquivos desta máquina nem tem git/SSH
-  do usuário. Ponha todo o contexto na missão e peça a resposta em JSON ou markdown curto. Tem internet (HTTPS).
+- Para trabalhar no código do usuário, passe workspace (ex.: o diretório do projeto): vai uma cópia cifrada,
+  o subagente trabalha nela e as mudanças voltam como patch (aplique com o comando em "aplicar" depois de revisar).
+  Sem workspace a máquina começa vazia: ponha todo o contexto na missão. Tem internet (HTTPS), mas não tem git/SSH do usuário.
 - A máquina leva ~2-3 min para subir; wait_agent espera até 15 min por chamada (chame de novo se voltar running).
 - Sempre recolha com wait_agent ou agent_result: a resposta só pode ser aberta nesta máquina.
 - Cada subagente consome crédito do wisp (máquina) e a assinatura/chave do usuário (modelo). Não dispare dezenas.
@@ -34,6 +35,7 @@ const TOOLS = [
       timeout_s: { type: "integer", default: 1800, minimum: 60, maximum: 7200 },
       auth: { type: "string", enum: ["auto", "login", "key"], default: "auto",
         description: "login = assinatura do usuário nesta máquina; key = chave de API do env; auto = chave se houver." },
+      workspace: { type: "string", description: "Caminho de um diretório/repositório DESTA máquina para mandar junto. Vai uma cópia cifrada (no git: arquivos rastreados + novos não ignorados; nunca o que está no .gitignore). O subagente trabalha em ~/work e as mudanças voltam como patch (patch_file + comando aplicar). Máx. 15 MB compactado." },
       label: { type: "string", description: "Rótulo curto VISÍVEL no painel (não coloque nada sensível)." } } } },
   { name: "wait_agent", description: "Espera o subagente terminar e devolve o resultado (campo result = resposta).",
     inputSchema: { type: "object", required: ["id"], properties: {

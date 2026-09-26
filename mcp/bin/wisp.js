@@ -12,7 +12,7 @@ const HELP = `wisp — subagentes com RAM sob demanda (${API})
 
   wisp login                         conecta esta máquina à sua conta (navegador)
   wisp logout
-  wisp spawn "missão" [--ram 2] [--engine claude|codex] [--model M] [--auth auto|login|key] [--wait]
+  wisp spawn "missão" [--ram 2] [--engine claude|codex] [--model M] [--auth auto|login|key] [--workspace DIR] [--wait]
   wisp wait ID | result ID | kill ID
   wisp ls
   wisp setup                         mostra como adicionar o MCP ao Claude Code / Codex
@@ -32,7 +32,7 @@ async function main() {
     case "logout": logout(); return console.log("desconectado");
     case "spawn": {
       const r = await spawnAgent({ mission: rest[0], ram_gb: Number(flag("ram", 2)), engine: flag("engine", "claude"),
-        model: flag("model"), auth: flag("auth", "auto"), timeout_s: Number(flag("timeout", 1800)), label: flag("label") });
+        model: flag("model"), auth: flag("auth", "auto"), timeout_s: Number(flag("timeout", 1800)), label: flag("label"), workspace: flag("workspace") });
       out(r);
       console.error("esperando a máquina e a atestação para mandar a missão selada…");
       await sealed(r.id);

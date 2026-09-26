@@ -1,7 +1,8 @@
 // Ciclo de um subagente do lado do cliente: cria o job, espera a atestação, confere, sela e recolhe o resultado.
+import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { call, ensureDir, getToken, writeSecret } from "./account.js";
 import { verifyAttestation } from "./attest.js";
 import { exportKey, importKey, newClientKey, openOutput, sealInput } from "./crypto.js";
@@ -14,6 +15,37 @@ const sealErrors = new Map();
 export class LoginRequired extends Error {}
 
 const keyFile = (id) => join(ensureDir("jobs"), `${id}.json`);
+const MAX_WORKSPACE = 15 * 1024 * 1024;       // compactado
+const SKIP_DIRS = new Set(["node_modules", ".git", ".venv", "venv", "__pycache__", "dist", "build", ".next", "target", ".cache"]);
+
+/** Copia do projeto: no git, o que ele rastreia + arquivos novos não ignorados (nunca o que está no .gitignore). */
+export function packWorkspace(dir) {
+  const root = resolve(dir);
+  if (!existsSync(root) || !statSync(root).isDirectory()) throw new Error(`workspace não é um diretório: ${root}`);
+  let files;
+  const git = spawnSync("git", ["-C", root, "ls-files", "-z", "-co", "--exclude-standard"], { maxBuffer: 256 * 1024 * 1024 });
+  if (git.status === 0) {
+    files = git.stdout.toString().split("\0").filter((f) => f && existsSync(join(root, f)));
+  } else {
+    files = [];
+    const walk = (rel) => {
+      for (const e of readdirSync(join(root, rel), { withFileTypes: true })) {
+        const r = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(r); }
+        else if (e.isFile() && !/^\.env(\.|$)/.test(e.name)) files.push(r);
+      }
+    };
+    walk("");
+  }
+  if (!files.length) throw new Error(`workspace vazio: ${root}`);
+  const tar = spawnSync("tar", ["-czf", "-", "-C", root, "--null", "-T", "-"], { input: files.join("\0"), maxBuffer: 256 * 1024 * 1024 });
+  if (tar.status !== 0) throw new Error(`tar falhou: ${tar.stderr.toString().slice(0, 300)}`);
+  if (tar.stdout.length > MAX_WORKSPACE) {
+    throw new Error(`projeto grande demais (${(tar.stdout.length / 1048576).toFixed(1)} MB compactado, máximo 15 MB): ` +
+      "aponte workspace para um subdiretório ou ignore arquivos pesados no .gitignore");
+  }
+  return { root, tgz: tar.stdout, files: files.length };
+}
 const devRoot = () => (process.env.WISP_DEV_ROOT ? readFileSync(process.env.WISP_DEV_ROOT, "utf8") : undefined);
 
 export async function spawnAgent(o) {
@@ -26,18 +58,22 @@ export async function spawnAgent(o) {
     timeout = Math.max(60, Math.floor(cred.left - 300));
     note = `timeout reduzido para ${timeout}s (validade do login local)`;
   }
+  const ws = o.workspace ? packWorkspace(o.workspace) : null;
   const priv = newClientKey();
   const nonce = randomBytes(32);
   const job = await call("POST", "/api/jobs", { engine, ram_gb: o.ram_gb ?? 2, timeout_s: timeout,
     nonce: nonce.toString("base64"), label: o.label });
-  writeSecret(keyFile(job.id), JSON.stringify({ id: job.id, priv: exportKey(priv), nonce: nonce.toString("base64"), engine }));
+  writeSecret(keyFile(job.id), JSON.stringify({ id: job.id, priv: exportKey(priv), nonce: nonce.toString("base64"), engine,
+    workspace: ws?.root }));
   const payload = Buffer.from(JSON.stringify({ engine, model: o.model, mission: o.mission, turns: o.max_turns ?? 20,
-    timeout, auth: { kind: cred.kind, value: cred.value } }));
+    timeout, auth: { kind: cred.kind, value: cred.value }, ...(ws ? { workspace_tgz: ws.tgz.toString("base64") } : {}) }));
   const p = sealWhenReady(job.id, priv, nonce, payload).finally(() => { payload.fill(0); sealers.delete(job.id); });
   sealers.set(job.id, p);
   p.catch(() => {});
   return { id: job.id, status: job.status, engine, ram_gb: job.ram_gb, instance_type: job.instance_type,
-    credential: cred.source, reserved_usd: +(job.hold_cents / 100).toFixed(4), ...(note ? { note } : {}) };
+    credential: cred.source, reserved_usd: +(job.hold_cents / 100).toFixed(4),
+    ...(ws ? { workspace: `${ws.root} (${ws.files} arquivos, ${(ws.tgz.length / 1024).toFixed(0)} KB, cifrado)` } : {}),
+    ...(note ? { note } : {}) };
 }
 
 async function sealWhenReady(id, priv, nonce, payload) {
@@ -109,6 +145,18 @@ export async function result(id) {
   const parsed = parseOutput(out.stdout ?? "");
   const res = { ...parsed, ...meta, exit_code: out.exit_code, duration_s: out.duration_s };
   if (out.exit_code === 124) res.erro = "timeout";
+  if (out.patch) {
+    const f = join(ensureDir("patches"), `${id}.patch`);
+    writeSecret(f, out.patch);
+    res.patch_file = f;
+    res.patch_stat = out.patch_stat;
+    res.aplicar = k.workspace ? `git -C ${JSON.stringify(k.workspace)} apply ${JSON.stringify(f)}` : `git apply ${JSON.stringify(f)}`;
+  } else if (out.patch === "") {
+    res.patch_stat = "nenhuma mudança no projeto";
+  } else if (out.patch_error) {
+    res.patch_erro = out.patch_error;
+    res.patch_stat = out.patch_stat;
+  }
   if (out.exit_code !== 0 && out.stderr_tail) res.stderr_tail = out.stderr_tail.slice(-1500);
   return res;
 }
