@@ -32,7 +32,7 @@ type Cell = 0 | 1 | 2 | 3 | 4 | 5 | 6
 function target(step: number, i: number, tick: number): [number, number] {
   if (step === 0) return CRAM[i] as [number, number]
   if (step === 1) return LANE[i] as [number, number]
-  if (step === 2) return tick > 6 + i * 5 ? [VMS[i][0] + 1, VMS[i][1] + 1] : (LANE[i] as [number, number])
+  if (step === 2) return tick > 3 + i * 3 ? [VMS[i][0] + 1, VMS[i][1] + 1] : (LANE[i] as [number, number])
   return [VMS[i][0] + 1, VMS[i][1] + 1]
 }
 
@@ -43,10 +43,12 @@ function useBoard(step: number, tick: number) {
   // anda uma célula por quadro na direção do alvo (primeiro na horizontal); só avança quando o quadro muda
   if (last.current !== `${step}:${tick}`) {
     last.current = `${step}:${tick}`
-    pos.current = pos.current.map(([c, r], i) => {
+    pos.current = pos.current.map(([c, r], i) => {      // 2 células por quadro
       const [tc, tr] = target(step, i, tick)
-      if (c !== tc) return [c + Math.sign(tc - c), r]
-      if (r !== tr) return [c, r + Math.sign(tr - r)]
+      for (let k = 0; k < 2; k++) {
+        if (c !== tc) c += Math.sign(tc - c)
+        else if (r !== tr) r += Math.sign(tr - r)
+      }
       return [c, r]
     })
   }
@@ -63,15 +65,15 @@ function useBoard(step: number, tick: number) {
     set(c, r, scan ? 3 : 1)
   }
   if (step === 2 && tick % 4 < 2) LOCK.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') set(GATE.c - 1 + x, 7 + y, 3) }))
-  const vmOn = step >= 1 && !(step === 4 && tick > 18)
+  const vmOn = step >= 1 && !(step === 4 && tick > 16)
   VMS.forEach(([c0, r0], m) => {
     if (!vmOn) return
     for (let r = r0; r < r0 + 7; r++) for (let c = c0; c < c0 + 7; c++) {
       const edge = r === r0 || r === r0 + 6 || c === c0 || c === c0 + 6
-      if (step === 4 && seeds[r * COLS + c] < (tick - 8) / 10) continue          // evaporando bloco a bloco
+      if (step === 4 && seeds[r * COLS + c] < (tick - 6) / 8) continue           // evaporando bloco a bloco
       if (edge) set(c, r, step === 1 && (c - c0 + tick) % 7 === 0 ? 3 : 1)
     }
-    if (step === 1 && tick > 8 + m * 3) CHECK.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') set(c0 + 1 + x - 0, r0 + 2 + y - 1, 5) }))
+    if (step === 1 && tick > 4 + m * 2) CHECK.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '#') set(c0 + 1 + x - 0, r0 + 2 + y - 1, 5) }))
     if (step === 3) {                                                            // RAM de cada máquina subindo e descendo
       const h = 2 + Math.round(2 + 2 * Math.sin(tick * 0.5 + m * 1.9))
       for (let k = 0; k < 5; k++) set(c0 + 1 + k, r0 + 7, k < h ? 3 : 1)
@@ -79,14 +81,14 @@ function useBoard(step: number, tick: number) {
   })
   // pacotes de resposta voltando
   if (step === 4) VMS.forEach(([c0, r0], m) => {
-    const k = tick - m * 2
-    if (k < 0 || k > 22) return
+    const k = (tick - m) * 2
+    if (k < 0 || k > 24) return
     const c = Math.max(NOTE.c + NOTE.w - 1, c0 - k), r = r0 + 3
     set(c, r, 6)
-    if (k > 20 || c === NOTE.c + NOTE.w - 1) set(NOTE.c + 2 + m * 2, NOTE.r + 1, 6)
+    if (k > 22 || c === NOTE.c + NOTE.w - 1) set(NOTE.c + 2 + m * 2, NOTE.r + 1, 6)
   })
   // fantasminhas
-  const ghostsOn = !(step === 4 && tick > 12)
+  const ghostsOn = !(step === 4 && tick > 10)
   pos.current.forEach(([c0, r0], i) => {
     if (!ghostsOn) return
     const frame = GHOST[(tick + i) % 2]
@@ -133,11 +135,11 @@ export function IsoSteps() {
   const [step, setStep] = useState(0)
   const [tick, setTick] = useState(0)
   const [paused, setPaused] = useState(false)
-  const STEP_TICKS = 44                                   // ~5,5 s por passo (8 quadros/s)
+  const STEP_TICKS = 30                                   // 3 s por passo (10 quadros/s)
   useEffect(() => { setTick(0) }, [step])
   useEffect(() => {
     if (!inView) return
-    const t = setInterval(() => setTick((x) => x + 1), 125)
+    const t = setInterval(() => setTick((x) => x + 1), 100)
     return () => clearInterval(t)
   }, [inView])
   useEffect(() => { if (!paused && tick >= STEP_TICKS) setStep((s) => (s + 1) % STEPS.length) }, [tick, paused])
@@ -157,6 +159,7 @@ export function IsoSteps() {
                   <span className="mono n">{s.n}</span>
                   <div>
                     <b>{s.t}</b>
+                    {i === step && <span className="step-timer"><motion.i initial={false} animate={{ scaleX: paused ? tick / STEP_TICKS : Math.min(1, tick / STEP_TICKS) }} transition={{ duration: 0.1, ease: 'linear' }} /></span>}
                     <AnimatePresence initial={false}>
                       {i === step && <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>{s.d}</motion.p>}
                     </AnimatePresence>
