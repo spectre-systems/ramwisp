@@ -7,6 +7,7 @@ import {
 } from '../api'
 import { CopyCommand, CountUp, Logo, RamBar, Spinner, StatusPill, ThemeToggle } from '../components/ui'
 import { useSession } from '../session'
+import { Ghost } from '../components/Ghost'
 
 function usePoll<T>(path: string, ms = 4000) {
   const [data, setData] = useState<T | null>(null)
@@ -144,7 +145,7 @@ function Overview() {
         Ao vivo {live.length > 0 && <span className="pill live"><span className="dot" />{live.length}</span>}
       </h2>
       {live.length === 0
-        ? <div className="card empty"><div className="ghost-wisp">◌</div><p className="muted" style={{ margin: '10px 0 0' }}>Nenhum subagente rodando agora.</p></div>
+        ? <div className="card empty"><Ghost mood="sleep" size={52} /><p className="muted" style={{ margin: '10px 0 0' }}>Nenhum subagente rodando agora.</p></div>
         : <div className="live-grid"><AnimatePresence>{live.map((j) => <LiveCard key={j.id} j={j} />)}</AnimatePresence></div>}
 
       <h2 style={{ fontSize: 18, margin: '34px 0 14px' }}>Uso nos últimos 30 dias</h2>
@@ -174,7 +175,10 @@ function LiveCard({ j }: { j: Job }) {
   return (
     <motion.div className="card agent-card glow" layout initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, filter: 'blur(8px)' }}>
       <div className="top">
-        <span className="mono" style={{ fontSize: 13 }}>{j.id}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Ghost mood={j.status === 'running' ? 'work' : 'sleep'} size={32} hue={(j.id.charCodeAt(4) % 3) as 0 | 1 | 2} />
+          <span className="mono" style={{ fontSize: 13 }}>{j.id}</span>
+        </span>
         <StatusPill status={j.status} />
       </div>
       {j.label && <div className="muted" style={{ fontSize: 14, marginTop: -4 }}>{j.label}</div>}

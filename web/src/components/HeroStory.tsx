@@ -83,8 +83,8 @@ export function HeroStory() {
                 {k === 'falta' && GHOSTS.slice(0, 3).map((g, i) => (
                   <motion.div key={g} layoutId={`g${g}`} transition={spring} className="crammed"
                     initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0, scaleX: 1.12, scaleY: 0.8 }}
-                    style={{ transformOrigin: 'bottom', marginLeft: i ? -10 : 0 }}>
-                    <Ghost mood="sad" size={40} hue={(g % 3) as 0 | 1 | 2} />
+                    style={{ transformOrigin: 'bottom', marginLeft: i ? -14 : 0 }}>
+                    <Ghost mood="sad" size={50} hue={(g % 3) as 0 | 1 | 2} />
                   </motion.div>
                 ))}
               </div>
@@ -99,7 +99,7 @@ export function HeroStory() {
             <AnimatePresence>
               {k === 'falta' && (
                 <motion.div className="queue" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                  <motion.div layoutId="g3" transition={spring}><Ghost mood="sad" size={34} hue={0} /></motion.div>
+                  <motion.div layoutId="g3" transition={spring}><Ghost mood="sad" size={40} hue={0} /></motion.div>
                   <span className="mono">na fila…</span>
                 </motion.div>
               )}

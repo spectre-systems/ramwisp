@@ -1,208 +1,178 @@
-import { motion, useScroll, useTransform } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, codexToml, installCmd, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
-import { Flow } from '../components/Flow'
-import { WispField } from '../components/WispField'
-import { CopyCommand, CountUp, Reveal } from '../components/ui'
+import { HeroStory } from '../components/HeroStory'
+import { ControlPreview, Evaporate, KeyVault, TerminalDemo } from '../components/Sections'
+import { CopyCommand, Reveal } from '../components/ui'
 
 const ease = [0.16, 1, 0.3, 1] as const
+
+/** Cada seção responde a UMA pergunta do visitante (roteiro em docs/landing-roteiro.md). */
+function Q({ n, q }: { n: string; q: string }) {
+  return <span className="eyebrow"><span className="mono">{n}</span>&nbsp;{q}</span>
+}
 
 export default function Landing() {
   const [info, setInfo] = useState<PublicInfo | null>(null)
   useEffect(() => { api<PublicInfo>('GET', '/api/public/info').then(setInfo).catch(() => {}) }, [])
-  const hero = useRef<HTMLElement>(null)
-  const { scrollYProgress } = useScroll({ target: hero, offset: ['start start', 'end start'] })
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, 120])
-  const heroO = useTransform(scrollYProgress, [0, 0.8], [1, 0])
   const gift = (info?.signup_credit_cents ?? 300) / 100
+  const small = info?.instance_types[0]
+  const big = info?.instance_types[1]
+  const brl = (usd?: number) => (usd ? `US$ ${usd.toFixed(2).replace('.', ',')}` : '—')
 
   return (
     <div className="grain">
       <Nav />
 
-      {/* ------------------------------------------------ herói */}
-      <section className="hero" ref={hero}>
-        <WispField />
-        <div className="hero-fade" />
-        <motion.div className="wrap hero-in" style={{ y: heroY, opacity: heroO }}>
-          <motion.span className="eyebrow" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }}>
-            subagentes efêmeros · Claude Code &amp; Codex
-          </motion.span>
-          <h1 className="hero-title">
-            {['RAM', 'sob', 'demanda', 'para', 'os', 'seus'].map((w, i) => (
-              <motion.span key={i} className="word" initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{ duration: 1, delay: 0.1 + i * 0.06, ease }}>{w}&nbsp;</motion.span>
-            ))}
-            <motion.span className="word serif grad" style={{ fontStyle: 'italic' }} initial={{ opacity: 0, y: 40, filter: 'blur(14px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 1.3, delay: 0.5, ease }}>subagentes.</motion.span>
-          </h1>
-          <motion.p className="hero-sub" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.7, ease }}>
-            Cada subagente nasce numa máquina própria na nuvem, trabalha, entrega a resposta e desaparece.
-            Com a <em>sua</em> assinatura ou chave — e protegido de um jeito que nem nós conseguimos ver o que ele faz.
-          </motion.p>
-          <motion.div className="hero-cta" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.85, ease }}>
-            <Link className="btn primary lg" to="/criar-conta">Começar com US$ {gift.toFixed(0)} grátis</Link>
-            <a className="btn lg" href="#como">Ver como funciona</a>
-          </motion.div>
-          <motion.div className="hero-cmd" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 1, ease }}>
-            <CopyCommand cmd={installCmd()} />
-            <span className="faint" style={{ fontSize: 13 }}>Um comando. No primeiro uso, ele abre o navegador para você entrar.</span>
-          </motion.div>
-        </motion.div>
-        <motion.a href="#respira" className="scroll-hint" animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2.4 }} aria-label="Rolar">
-          <span />
-        </motion.a>
-      </section>
-
-      {/* ------------------------------------------------ seu computador respira */}
-      <section id="respira" className="section">
-        <div className="wrap">
-          <Reveal>
-            <span className="eyebrow">o problema</span>
-            <h2 className="h2">Seis agentes em paralelo não cabem<br /><span className="serif grad" style={{ fontStyle: 'italic' }}>no seu notebook.</span></h2>
-            <p className="lead muted">Cada subagente carrega ferramentas, builds, testes, navegadores. Tudo disputando RAM com o que você está fazendo — até a máquina travar.</p>
-          </Reveal>
-          <div className="grid-2" style={{ marginTop: 40 }}>
-            <Reveal delay={0.05}><Breathe mode="local" /></Reveal>
-            <Reveal delay={0.15}><Breathe mode="wisp" /></Reveal>
+      {/* 1 · O que é isso? É comigo? — problema e solução na primeira tela */}
+      <section className="hero2">
+        <div className="wrap hero2-grid">
+          <div>
+            <motion.span className="eyebrow" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease }}>
+              para quem roda subagentes no Claude Code e no Codex
+            </motion.span>
+            <h1>
+              <motion.span className="problem" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, ease }}>
+                Seus subagentes não cabem na sua RAM.
+              </motion.span>
+              <motion.span className="solution grad" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.25, ease }}>
+                Dê uma máquina para cada um.
+              </motion.span>
+            </h1>
+            <motion.p className="sub" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9, delay: 0.45 }}>
+              O ramwisp sobe cada subagente numa <b>máquina própria na nuvem</b>, com uma cópia do seu projeto e a RAM que ele precisar.
+              Você recebe a resposta e as mudanças prontas para aplicar. A máquina <b>evapora</b> em seguida.
+            </motion.p>
+            <motion.div className="facts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
+              <span><b>US$ {gift.toFixed(0)}</b> grátis para testar</span>
+              <span><b>{brl(small?.usdHour)}</b>/hora por máquina</span>
+              <span>sobe em <b>~2–3 min</b></span>
+              <span>tokens na <b>sua</b> assinatura ou chave</span>
+            </motion.div>
+            <motion.div className="hero-cta" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7, ease }}>
+              <Link className="btn primary lg" to="/criar-conta">Testar grátis</Link>
+              <a className="btn lg" href="#dia-a-dia">Ver um exemplo real</a>
+            </motion.div>
           </div>
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, delay: 0.3, ease }}>
+            <HeroStory />
+          </motion.div>
         </div>
       </section>
 
-      {/* ------------------------------------------------ como funciona */}
-      <section id="como" className="section">
-        <div className="wrap">
+      {/* 2 · Como eu usaria no dia a dia? */}
+      <section id="dia-a-dia" className="section">
+        <div className="wrap split">
           <Reveal>
-            <span className="eyebrow">como funciona</span>
-            <h2 className="h2">Pedir. Provar. Selar.<br /><span className="serif grad" style={{ fontStyle: 'italic' }}>Evaporar.</span></h2>
+            <Q n="01" q="como fica no seu dia a dia" />
+            <h2 className="h2">Você pede em português. <span className="grad">Ele divide o trabalho.</span></h2>
+            <ul className="bullets">
+              <li><b>Você continua no seu terminal.</b> O ramwisp é um MCP: o seu Claude Code ou Codex ganha a ferramenta de subir subagentes e decide quando usar.</li>
+              <li><b>O projeto vai junto.</b> Uma cópia cifrada do repositório, só com o que o git rastreia. O que está no <code>.gitignore</code>, como o <code>.env</code>, nunca sai.</li>
+              <li><b>Volta pronto para revisar.</b> Cada subagente devolve a resposta e um patch. Você, ou o seu agente, aplica com <code>git apply</code>.</li>
+            </ul>
           </Reveal>
-          <Reveal delay={0.1}><Flow /></Reveal>
+          <Reveal delay={0.1}><TerminalDemo /></Reveal>
         </div>
       </section>
 
-      {/* ------------------------------------------------ privacidade */}
+      {/* 3 · E a minha chave? Vocês veem? */}
       <section id="privacidade" className="section">
         <div className="wrap">
           <Reveal>
-            <span className="eyebrow">privacidade de verdade</span>
-            <h2 className="h2">Não é uma promessa.<br /><span className="serif grad" style={{ fontStyle: 'italic' }}>É matemática.</span></h2>
+            <Q n="02" q="e a sua chave?" />
+            <h2 className="h2">Sua chave viaja trancada. <span className="grad">Nem nós conseguimos abrir.</span></h2>
             <p className="lead muted">
-              O agente roda dentro de uma AWS Nitro Enclave: memória isolada, sem disco, sem acesso nem para quem é dono da conta.
-              O seu MCP só manda algo depois de conferir a assinatura do hardware e o hash do código. Se mudarmos uma vírgula, ele recusa.
+              Cada subagente roda numa <b>máquina lacrada</b> (AWS Nitro Enclave). Antes de mandar qualquer coisa, o MCP confere no
+              seu computador uma prova assinada pelo hardware de que a máquina roda exatamente o código publicado. Só então tranca
+              o seu login, o projeto e a tarefa com uma chave que existe apenas dentro dela.
             </p>
           </Reveal>
-          <div className="grid-2 see" style={{ marginTop: 40 }}>
-            <Reveal delay={0.05}>
-              <div className="card">
-                <h3 className="see-h"><span className="dot" style={{ background: 'var(--err)' }} />O que nunca vemos</h3>
-                <ul className="see-list">
-                  {['A missão que você mandou', 'O seu login do Claude ou do ChatGPT, ou a sua chave de API', 'O que o agente escreveu, rodou ou baixou', 'A resposta final'].map((t, i) => (
-                    <motion.li key={t} initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 + i * 0.08 }}>
-                      <LockIcon /> {t}
-                    </motion.li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-            <Reveal delay={0.15}>
-              <div className="card">
-                <h3 className="see-h"><span className="dot" style={{ background: 'var(--ok)' }} />O que vemos (e mostramos no seu painel)</h3>
-                <ul className="see-list">
-                  {['Quando começou, quanto durou e quanto custou', 'Quanta RAM foi usada, em tempo real', 'Os domínios acessados (ex.: api.anthropic.com), nunca o conteúdo', 'Se terminou com sucesso ou erro'].map((t, i) => (
-                    <motion.li key={t} initial={{ opacity: 0, x: -10 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 + i * 0.08 }}>
-                      <EyeIcon /> {t}
-                    </motion.li>
-                  ))}
-                </ul>
-              </div>
-            </Reveal>
-          </div>
-          <Reveal delay={0.2}>
-            <p className="faint" style={{ marginTop: 18, fontSize: 14 }}>
-              Os hashes aceitos e a raiz de confiança estão em <Link to="/seguranca" style={{ color: 'var(--wisp)' }}>Transparência</Link>.
-            </p>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------ setup */}
-      <section className="section">
-        <div className="wrap">
-          <Reveal>
-            <span className="eyebrow">em 30 segundos</span>
-            <h2 className="h2">Adicione. Peça. <span className="serif grad" style={{ fontStyle: 'italic' }}>Pronto.</span></h2>
-          </Reveal>
-          <div className="grid-3 steps3" style={{ marginTop: 36 }}>
-            <Reveal delay={0.0}><Step n="1" t="Adicione o MCP" d="No Claude Code ou no Codex. Nada para configurar."><CopyCommand cmd={installCmd()} /></Step></Reveal>
-            <Reveal delay={0.08}><Step n="2" t="Entre no navegador" d="No primeiro uso ele abre uma página. Você aprova e ganha crédito grátis."><div className="code-chip mono">código <b>WQ7K-L2PD</b> · aprovar</div></Step></Reveal>
-            <Reveal delay={0.16}><Step n="3" t="Peça em linguagem normal" d="O seu agente passa a delegar trabalho pesado sozinho."><div className="code-chip">“sobe 4 subagentes com 8 GB e roda os testes de cada pacote”</div></Step></Reveal>
-          </div>
-          <Reveal delay={0.1}>
-            <details className="codex-details">
-              <summary>Usa Codex? Adicione em <code>~/.codex/config.toml</code></summary>
-              <pre className="block mono">{codexToml()}</pre>
-            </details>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ------------------------------------------------ preços */}
-      <section id="precos" className="section">
-        <div className="wrap">
-          <Reveal>
-            <span className="eyebrow">preço</span>
-            <h2 className="h2">Paga a máquina pelo segundo.<br /><span className="serif grad" style={{ fontStyle: 'italic' }}>O modelo é seu.</span></h2>
-            <p className="lead muted">O wisp cobra só o tempo de máquina. O modelo roda na sua assinatura Claude/ChatGPT ou na sua chave de API — como uma sessão normal.</p>
-          </Reveal>
-          <div className="tiers">
-            {(info?.tiers ?? [2, 4, 8, 16, 24]).map((gb, i) => {
-              const it = info?.instance_types.find((t) => t.memMib - 2560 >= gb * 1024 + 3072)
-              return (
-                <Reveal key={gb} delay={i * 0.05}>
-                  <div className={`card tier ${gb === 8 ? 'glow' : ''}`}>
-                    <div className="tier-gb"><CountUp value={gb} /> <span>GB</span></div>
-                    <div className="muted">RAM do subagente</div>
-                    <div className="tier-price">{it ? `US$ ${it.usdHour.toFixed(2).replace('.', ',')}` : '—'}<span className="faint"> /hora</span></div>
-                    <div className="faint" style={{ fontSize: 12 }}>{it ? `≈ US$ ${(it.usdHour / 6).toFixed(3).replace('.', ',')} por 10 min` : ''}</div>
-                  </div>
-                </Reveal>
-              )
-            })}
-          </div>
-          <Reveal delay={0.1}>
-            <div className="card glow gift">
-              <div>
-                <div className="serif" style={{ fontSize: 34, lineHeight: 1.1 }}>US$ {gift.toFixed(0)} de crédito para começar</div>
-                <p className="muted" style={{ margin: '8px 0 0' }}>Sem cartão. Dá para dezenas de subagentes de 10 minutos. Cobrança por segundo, mínimo de 60 s por máquina.</p>
-              </div>
-              <Link className="btn primary lg" to="/criar-conta">Criar conta</Link>
+          <Reveal delay={0.1}><KeyVault /></Reveal>
+          <Reveal delay={0.15}>
+            <div className="grid-3 trust3">
+              <div><b>Só o token de acesso</b><p className="muted small">O de renovação nunca sai do seu computador. O acesso expira sozinho e a sua sessão local nunca cai.</p></div>
+              <div><b>Mudou o código, o MCP recusa</b><p className="muted small">Se alguém trocar o software da máquina, a prova deixa de bater e nada é enviado. <Link to="/seguranca" style={{ color: 'var(--wisp)' }}>Como conferimos</Link>.</p></div>
+              <div><b>O que nós vemos</b><p className="muted small">Só o que aparece no seu painel: horário, duração, RAM, custo e os domínios acessados. Nunca o conteúdo.</p></div>
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ------------------------------------------------ FAQ */}
+      {/* 4 · E depois? Fica alguma coisa? */}
       <section className="section">
-        <div className="wrap faq">
-          <Reveal><span className="eyebrow">perguntas</span><h2 className="h2">Perguntas frequentes</h2></Reveal>
-          {FAQ.map(([q, a], i) => (
-            <Reveal key={q} delay={i * 0.04}>
-              <details className="faq-item"><summary>{q}</summary><p className="muted">{a}</p></details>
-            </Reveal>
-          ))}
+        <div className="wrap split reverse">
+          <Reveal delay={0.1}><Evaporate /></Reveal>
+          <Reveal>
+            <Q n="03" q="e quando termina?" />
+            <h2 className="h2">Entregou, <span className="grad">evaporou.</span></h2>
+            <p className="lead muted">
+              Não existe máquina parada com a sua chave dentro. Assim que você recebe o resultado, a máquina é destruída junto com a memória.
+              Se você esquecer um subagente rodando, ele evapora sozinho no tempo máximo da tarefa.
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      <section className="section final">
-        <WispField density={0.5} />
-        <div className="wrap" style={{ position: 'relative', textAlign: 'center' }}>
+      {/* 5 · Quem controla? Quanto vou gastar? */}
+      <section id="precos" className="section">
+        <div className="wrap split">
           <Reveal>
-            <h2 className="h2" style={{ marginInline: 'auto' }}>Deixe o peso <span className="serif grad" style={{ fontStyle: 'italic' }}>evaporar.</span></h2>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 28, flexWrap: 'wrap' }}>
-              <Link className="btn primary lg" to="/criar-conta">Começar grátis</Link>
-              <Link className="btn lg" to="/seguranca">Ler sobre segurança</Link>
+            <Q n="04" q="quem controla e quanto custa" />
+            <h2 className="h2">Você vê cada um. <span className="grad">Você desliga quando quiser.</span></h2>
+            <ul className="bullets">
+              <li><b>Painel ao vivo:</b> cada subagente com a RAM em tempo real e um botão para encerrar.</li>
+              <li><b>Nunca passa do seu saldo:</b> cada subagente reserva o máximo que pode custar e devolve a sobra ao terminar.</li>
+              <li><b>Tempo máximo por tarefa:</b> 30 min por padrão, até 2 h.</li>
+              <li><b>O modelo é seu:</b> os tokens saem da sua assinatura ou chave, como numa sessão normal. 4 subagentes em paralelo gastam como 4 sessões.</li>
+            </ul>
+            <div className="price-table">
+              <div><span>Subagente com até <b>8 GB</b> de RAM</span><b>{brl(small?.usdHour)}/h</b></div>
+              <div><span>Subagente com até <b>24 GB</b> de RAM</span><b>{brl(big?.usdHour)}/h</b></div>
+              <p className="faint small">Você paga pela máquina, cobrada por segundo (mínimo de 60 s). Uma tarefa de 10 min com 8 GB custa cerca de {brl((small?.usdHour ?? 0.2) / 6)}.</p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}><ControlPreview /></Reveal>
+        </div>
+      </section>
+
+      {/* 6 · Como começo? */}
+      <section id="comecar" className="section">
+        <div className="wrap" style={{ maxWidth: 860 }}>
+          <Reveal>
+            <Q n="05" q="como começar" />
+            <h2 className="h2">Um comando. <span className="grad">Um clique no navegador.</span></h2>
+          </Reveal>
+          <Reveal delay={0.05}>
+            <ol className="start">
+              <li><b>Adicione o MCP</b> no Claude Code:<CopyCommand cmd={installCmd()} />
+                <details className="codex-details"><summary>Usa Codex? Veja o trecho para o <code>~/.codex/config.toml</code></summary><pre className="block mono">{codexToml()}</pre></details>
+              </li>
+              <li><b>Na primeira vez, ele abre o navegador</b> para você criar a conta ramwisp (com US$ {gift.toFixed(0)} grátis) ou entrar. É só aprovar.</li>
+              <li><b>Peça ao seu agente:</b> <em>“roda isso num subagente wisp com 8 GB”</em>. Ele faz o resto.</li>
+            </ol>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* 7 · Objeções que sobraram */}
+      <section className="section">
+        <div className="wrap faq">
+          <Reveal><Q n="06" q="perguntas" /><h2 className="h2">Antes de testar</h2></Reveal>
+          {FAQ.map(([q, a], i) => (
+            <Reveal key={q} delay={i * 0.03}>
+              <details className="faq-item"><summary>{q}</summary><p className="muted">{a}</p></details>
+            </Reveal>
+          ))}
+          <Reveal>
+            <div className="card glow gift" style={{ marginTop: 40 }}>
+              <div>
+                <div style={{ fontFamily: 'var(--display)', fontSize: 26, fontWeight: 700, letterSpacing: '-0.03em' }}>US$ {gift.toFixed(0)} grátis, sem cartão</div>
+                <p className="muted" style={{ margin: '6px 0 0' }}>Dá para cerca de {Math.floor(gift / (small?.usdHour ?? 0.2))} horas de máquina com 8 GB.</p>
+              </div>
+              <Link className="btn primary lg" to="/criar-conta">Criar conta</Link>
             </div>
           </Reveal>
         </div>
@@ -213,60 +183,10 @@ export default function Landing() {
 }
 
 const FAQ: [string, string][] = [
-  ['Preciso instalar alguma coisa?', 'Só o MCP, com um comando. Ele usa o Node que você já tem (npx) e não precisa de mais nada. Não roda nenhum serviço em segundo plano.'],
-  ['Qual login o agente usa?', 'Você escolhe. Por padrão, o seu login do Claude Code ou do Codex desta máquina (só o token de acesso, nunca o de renovação, então sua sessão local nunca cai). Se preferir, uma chave de API no env do MCP.'],
-  ['O agente vê meus arquivos?', 'Não. Ele começa numa máquina vazia, sem seus arquivos, sem chave SSH e sem credenciais de git. Tudo o que ele sabe vai na missão. Ele tem internet (HTTPS).'],
-  ['Quanto tempo leva para subir?', 'Cerca de 2 a 3 minutos para ligar uma máquina nova e provar a enclave. Por isso o wisp brilha em tarefas de minutos a horas, em paralelo.'],
-  ['E se eu esquecer um agente rodando?', 'Cada missão tem um tempo máximo. Passou dele, a máquina é destruída sozinha, e você só paga o tempo usado. A reserva de crédito volta na hora.'],
-  ['Como sei que vocês não trocam o código?', 'O hardware da AWS assina o hash exato da imagem que está rodando. Seu MCP compara com a lista publicada e, se não bater, não manda nada. Os hashes estão na página de transparência.'],
+  ['O que a máquina tem instalado?', 'Claude Code, Codex, git, Python 3 e curl. O subagente tem internet (HTTPS) e pode instalar o que precisar com pip ou npm, como faria no seu computador.'],
+  ['Meu código fica guardado em algum lugar?', 'Não. A cópia vai cifrada direto para dentro da máquina lacrada, e o nosso servidor só guarda bytes ilegíveis até a máquina buscar. Depois de rodar, a máquina é destruída com tudo o que tinha em memória.'],
+  ['Por que demora 2–3 minutos para começar?', 'É uma máquina nova, só sua, criada para a tarefa. Por isso o ramwisp vale para trabalhos de minutos a horas, em paralelo: suítes de teste, refatorações, pesquisa longa.'],
+  ['Posso usar o meu login do Claude ou do ChatGPT?', 'Sim, para uso pessoal: o MCP usa o login que já está no seu computador (só o token de acesso). Para uso comercial ou em equipe, use uma chave de API: é só colocar ANTHROPIC_API_KEY ou OPENAI_API_KEY no env do MCP.'],
+  ['E se eu esquecer um subagente rodando?', 'Toda tarefa tem tempo máximo. Passou dele, a máquina é destruída e você paga só o tempo usado. A reserva de crédito volta na hora.'],
+  ['Como vocês provam que não trocaram o código?', 'O hardware da AWS assina o hash exato do software que está rodando. O MCP compara com o hash publicado e, se não bater, não envia nada. Os hashes estão na página de transparência.'],
 ]
-
-function Breathe({ mode }: { mode: 'local' | 'wisp' }) {
-  const local = mode === 'local'
-  const agents = 6
-  return (
-    <div className={`card breathe ${local ? '' : 'glow'}`}>
-      <div className="breathe-h">
-        <strong>{local ? 'Sem wisp' : 'Com wisp'}</strong>
-        <span className={`pill ${local ? 'err' : 'ok'}`}><span className="dot" />{local ? 'RAM 97%' : 'RAM 31%'}</span>
-      </div>
-      <div className="breathe-ram">
-        <span className="faint mono" style={{ fontSize: 12 }}>seu computador · 16 GB</span>
-        <div className="ram-track">
-          <motion.div className="ram-you" initial={{ width: 0 }} whileInView={{ width: '28%' }} viewport={{ once: true }} transition={{ duration: 1 }} />
-          {local && Array.from({ length: agents }).map((_, i) => (
-            <motion.div key={i} className="ram-agent" initial={{ width: 0 }} whileInView={{ width: '11.5%' }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.6 + i * 0.18 }} />
-          ))}
-        </div>
-      </div>
-      {!local && (
-        <div className="cloud-agents">
-          {Array.from({ length: agents }).map((_, i) => (
-            <motion.div key={i} className="cloud-agent" initial={{ opacity: 0, y: 20, scale: 0.8 }} whileInView={{ opacity: 1, y: 0, scale: 1 }} viewport={{ once: true }}
-              transition={{ duration: 0.7, delay: 0.5 + i * 0.12, ease }}>
-              <motion.span animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.6, delay: i * 0.3 }}>◌</motion.span>
-              <span className="mono faint" style={{ fontSize: 11 }}>8 GB</span>
-            </motion.div>
-          ))}
-        </div>
-      )}
-      <p className="muted" style={{ margin: '14px 0 0', fontSize: 14 }}>
-        {local ? 'Swap, ventoinha no máximo, seu editor travando entre um teste e outro.' : 'Seis agentes com 8 GB cada, cada um na sua máquina. O seu notebook nem percebe.'}
-      </p>
-    </div>
-  )
-}
-
-function Step({ n, t, d, children }: { n: string; t: string; d: string; children: React.ReactNode }) {
-  return (
-    <div className="card step">
-      <span className="step-n serif grad">{n}</span>
-      <h3 style={{ margin: '4px 0 6px', fontSize: 18 }}>{t}</h3>
-      <p className="muted" style={{ margin: '0 0 16px', fontSize: 14 }}>{d}</p>
-      {children}
-    </div>
-  )
-}
-
-const LockIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--err)" strokeWidth="2" strokeLinecap="round" aria-hidden><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-const EyeIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ok)" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>
