@@ -3,9 +3,9 @@
 .tag { display: inline-block; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--text); margin-bottom: 22px; }
 .tag.acc, .acc { color: var(--acc); }
 .dim { color: var(--faint); }
-.display { font-family: var(--display); font-stretch: 72%; font-weight: 800; text-transform: uppercase; font-size: clamp(46px, 5.8vw, 92px); line-height: .9; letter-spacing: -0.005em; margin: 0 0 26px; }
-.display-2 { font-family: var(--display); font-stretch: 72%; font-weight: 800; text-transform: uppercase; font-size: clamp(36px, 4.8vw, 72px); line-height: .92; margin: 0 0 22px; max-width: 18ch; }
-.dim-2 { font-weight: 400; color: var(--text); }
+.display { font-family: var(--display); font-stretch: 62%; font-weight: 600; text-transform: uppercase; font-size: clamp(52px, 6.6vw, 104px); line-height: .92; letter-spacing: -0.005em; margin: 0 0 26px; }
+.display-2 { font-family: var(--display); font-stretch: 62%; font-weight: 600; text-transform: uppercase; font-size: clamp(40px, 5.4vw, 82px); line-height: .94; margin: 0 0 22px; max-width: 18ch; }
+.dim-2 { font-weight: 300; color: var(--text); }
 .hero-pro { padding: 150px 0 90px; border-bottom: 1px solid var(--line); }
 .hero-pro-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: 56px; align-items: center; }
 @media (max-width: 1000px) { .hero-pro-grid { grid-template-columns: minmax(0, 1fr); } }
@@ -84,7 +84,7 @@
 @media (max-width: 800px) { .price-pro { grid-template-columns: minmax(0, 1fr); } }
 .pp-card { padding: 28px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line-2); font-size: 12.5px; letter-spacing: .04em; }
 .pp-card:last-child { border-right: 0; }
-.pp-num { font-family: var(--display); font-stretch: 72%; font-weight: 800; font-size: 60px; line-height: 1; }
+.pp-num { font-family: var(--display); font-stretch: 62%; font-weight: 600; font-size: 60px; line-height: 1; }
 .pp-num small { font-size: 22px; font-weight: 400; color: var(--muted); }
 .pp-acc { background: var(--acc); color: #000; } .pp-acc .pp-num small { color: #000; }
 .pp-acc .bx-acc { background: #000; color: var(--acc); border-color: #000; justify-self: start; margin-top: 8px; }
@@ -117,8 +117,8 @@
 .hero-pro > .wrap, .final-pro > .wrap { position: relative; z-index: 1; }
 
 /* passos em perspectiva */
-.iso-sec { height: 520vh; position: relative; margin-top: 40px; }
-.iso-sticky { position: sticky; top: 0; height: 100vh; display: grid; align-items: center; overflow: hidden; }
+.iso-sec { position: relative; margin-top: 40px; }
+.iso-sticky { padding: 40px 0 20px; overflow: hidden; }
 .iso-grid-wrap { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 40px; align-items: center; }
 @media (max-width: 900px) { .iso-grid-wrap { grid-template-columns: minmax(0, 1fr); gap: 0; } .iso-stage { height: 46vh !important; transform: scale(.62); } }
 .iso-stage { height: 620px; display: grid; place-items: center; perspective: 1600px; }
@@ -147,11 +147,13 @@
 .iso-grid i.b3 { background: var(--acc); box-shadow: 0 0 8px rgba(95, 245, 255, .6); }
 .iso-steps ol { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-2); }
 .iso-steps li { display: grid; grid-template-columns: 44px 1fr; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--line-2); cursor: pointer; color: var(--faint); transition: color .2s; }
-.iso-steps li b { font-family: var(--display); font-stretch: 75%; font-weight: 800; font-size: 26px; text-transform: uppercase; letter-spacing: .01em; }
+.iso-steps li b { font-family: var(--display); font-stretch: 62%; font-weight: 600; font-size: 30px; text-transform: uppercase; letter-spacing: .01em; }
 .iso-steps li.past { color: var(--muted); }
 .iso-steps li.on { color: var(--text); }
 .iso-steps li.on .n { color: var(--acc); }
 .iso-steps li p { margin: 8px 0 0; color: #cfcfcf; font-size: 16px; line-height: 1.5; overflow: hidden; }
 .iso-steps .n { padding-top: 6px; font-size: 13px; }
 .iso-progress { height: 2px; background: var(--line-2); margin-top: 18px; overflow: hidden; }
-.iso-progress i { display: block; height: 100%; background: var(--acc); transform-origin: left; }
+.iso-progress { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; height: 3px; background: none; }
+.iso-progress span { background: var(--line-2); overflow: hidden; }
+.iso-progress span i { display: block; height: 100%; background: var(--acc); transform-origin: left; }

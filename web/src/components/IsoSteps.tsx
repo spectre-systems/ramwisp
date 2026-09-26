@@ -1,8 +1,8 @@
-import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'motion/react'
+import { AnimatePresence, motion, useInView } from 'motion/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 /**
- * "Como funciona" em 5 passos, preso na tela enquanto a pessoa rola.
+ * "Como funciona" em 5 passos que avançam sozinhos (por tempo, só enquanto a seção está na tela).
  * Um tabuleiro de blocos em perspectiva com 3 áreas: SEU NOTEBOOK → PORTÃO DE ATESTAÇÃO → 4 MÁQUINAS.
  * Os subagentes são fantasminhas de blocos (5×5) que andam célula a célula entre as áreas.
  * Tudo em degraus (8 quadros/s). O mouse acende os blocos por onde passa.
@@ -129,15 +129,21 @@ function Board({ step, tick }: { step: number; tick: number }) {
 
 export function IsoSteps() {
   const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end end'] })
+  const inView = useInView(ref, { amount: 0.35 })
   const [step, setStep] = useState(0)
   const [tick, setTick] = useState(0)
-  useMotionValueEvent(scrollYProgress, 'change', (v) => setStep(Math.min(4, Math.max(0, Math.floor(v * 5)))))
+  const [paused, setPaused] = useState(false)
+  const STEP_TICKS = 44                                   // ~5,5 s por passo (8 quadros/s)
   useEffect(() => { setTick(0) }, [step])
-  useEffect(() => { const t = setInterval(() => setTick((x) => x + 1), 125); return () => clearInterval(t) }, [])
+  useEffect(() => {
+    if (!inView) return
+    const t = setInterval(() => setTick((x) => x + 1), 125)
+    return () => clearInterval(t)
+  }, [inView])
+  useEffect(() => { if (!paused && tick >= STEP_TICKS) setStep((s) => (s + 1) % STEPS.length) }, [tick, paused])
 
   return (
-    <div ref={ref} className="iso-sec">
+    <div ref={ref} className="iso-sec" onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}>
       <div className="iso-sticky">
         <div className="wrap iso-grid-wrap">
           <div className="iso-stage" aria-label="Animação: subagentes saem do notebook, passam pelo portão de atestação, trabalham em máquinas próprias e voltam com a resposta">
@@ -147,8 +153,7 @@ export function IsoSteps() {
             <span className="tag mono">[ Como funciona, passo a passo ]</span>
             <ol>
               {STEPS.map((s, i) => (
-                <li key={s.n} className={i === step ? 'on' : i < step ? 'past' : ''}
-                  onClick={() => { const el = ref.current!; const top = el.offsetTop + (el.offsetHeight - window.innerHeight) * ((i + 0.5) / 5); window.scrollTo({ top, behavior: 'smooth' }) }}>
+                <li key={s.n} className={i === step ? 'on' : i < step ? 'past' : ''} onClick={() => setStep(i)}>
                   <span className="mono n">{s.n}</span>
                   <div>
                     <b>{s.t}</b>
@@ -159,7 +164,9 @@ export function IsoSteps() {
                 </li>
               ))}
             </ol>
-            <div className="iso-progress"><motion.i style={{ scaleX: scrollYProgress }} /></div>
+            <div className="iso-progress">
+              {STEPS.map((_, i) => <span key={i}><motion.i initial={false} animate={{ scaleX: i < step ? 1 : i === step ? Math.min(1, tick / STEP_TICKS) : 0 }} transition={{ duration: 0.12, ease: 'linear' }} /></span>)}
+            </div>
           </div>
         </div>
       </div>
