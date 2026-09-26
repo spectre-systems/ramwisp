@@ -315,10 +315,17 @@ app.get("/wisp.tgz", (c) => {
   return c.body(readFileSync(p));
 });
 
-app.use("/*", serveStatic({ root: "../web/dist", rewriteRequestPath: (p) => p }));
+// cache: arquivos versionados (/assets/*-hash.js) ficam em cache "para sempre"; o index.html sempre revalida,
+// senão um navegador com o index antigo pede JS que não existe mais e a página fica preta
+app.use("/assets/*", async (c, next) => { await next(); if (c.res.status === 200) c.header("Cache-Control", "public, max-age=31536000, immutable"); });
+app.use("/assets/*", serveStatic({ root: "../web/dist", rewriteRequestPath: (p) => p }));
+app.get("/assets/*", (c) => c.text("not found", 404));   // nunca devolver HTML no lugar de JS/CSS
+app.use("/*", serveStatic({ root: "../web/dist", rewriteRequestPath: (p) => p,
+  onFound: (path, c) => { if (path.endsWith(".html")) c.header("Cache-Control", "no-cache"); } }));
 app.get("*", (c) => {
   const index = `${ROOT}/web/dist/index.html`;
   if (c.req.path.startsWith("/api/") || !existsSync(index)) return c.json({ error: "not found" }, 404);
+  c.header("Cache-Control", "no-cache");
   return c.html(readFileSync(index, "utf8"));
 });
 

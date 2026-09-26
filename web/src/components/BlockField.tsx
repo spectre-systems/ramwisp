@@ -16,7 +16,7 @@ export function BlockField({ className, intensity = 1 }: { className?: string; i
     let heat = new Float32Array(0)
     let seed = new Float32Array(0)
     const mouse = { x: -1e4, y: -1e4, inside: false }
-    let wave = -1
+    let wave = 0                                             // já abre com uma onda passando
 
     const resize = () => {
       const r = cv.getBoundingClientRect()
@@ -40,7 +40,7 @@ export function BlockField({ className, intensity = 1 }: { className?: string; i
       const w = cols * CELL, h = rows * CELL
       ctx.clearRect(0, 0, w, h)
       // onda em degraus (coluna por coluna) a cada ~7 s
-      if (wave < 0 && t % 210 === 0) wave = 0
+      if (wave < 0 && t % 75 === 0) wave = 0                     // e outra a cada ~2,5 s
       const mc = Math.floor(mouse.x / CELL), mr = Math.floor(mouse.y / CELL)
       for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
         const i = r * cols + c
@@ -48,7 +48,7 @@ export function BlockField({ className, intensity = 1 }: { className?: string; i
           const d = Math.hypot(c - mc, r - mr)
           if (d < 5) heat[i] = Math.max(heat[i], 1 - d / 5)
         }
-        if (wave >= 0 && Math.abs(c + r * 0.5 - wave) < 1.2 && seed[i] > 0.55) heat[i] = Math.max(heat[i], 0.45)
+        if (wave >= 0 && Math.abs(c + r * 0.5 - wave) < 1.6 && seed[i] > 0.45) heat[i] = Math.max(heat[i], 0.6)
         heat[i] *= 0.93
         const base = seed[i] > 0.985 ? 0.12 : 0.045            // alguns blocos sempre levemente acesos
         const v = Math.min(1, base + heat[i] * intensity)
