@@ -36,6 +36,8 @@ async function main() {
       out(r);
       console.error("esperando a máquina e a atestação para mandar a missão selada…");
       await sealed(r.id);
+      const now = await result(r.id);
+      if (now.erro || ["failed", "killed", "expired"].includes(now.status)) { out(now); process.exit(1); }
       if (rest.includes("--wait")) return out(await waitAgent(r.id, 3600));
       return console.error(`missão entregue. Recolha com: wisp wait ${r.id}`);
     }

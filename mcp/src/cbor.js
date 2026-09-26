@@ -17,13 +17,14 @@ function item(b, i) {
     if (ai === 27) return [b.readDoubleBE(i), i + 8];
     throw new Error(`cbor: simple ${ai}`);
   }
+  if (ai === 31) return indefinite(b, i, major);   // comprimento indefinido (o NSM da AWS usa)
   let n;
   if (ai < 24) n = ai;
   else if (ai === 24) { n = b[i]; i += 1; }
   else if (ai === 25) { n = b.readUInt16BE(i); i += 2; }
   else if (ai === 26) { n = b.readUInt32BE(i); i += 4; }
   else if (ai === 27) { n = Number(b.readBigUInt64BE(i)); i += 8; }
-  else throw new Error("cbor: comprimento indefinido");
+  else throw new Error(`cbor: info adicional ${ai}`);
   switch (major) {
     case 0: return [n, i];
     case 1: return [-1 - n, i];
@@ -55,4 +56,25 @@ export function encodeSigStructure(protectedBytes, payload) {
   const bstr = (x) => Buffer.concat([head(2, x.length), x]);
   const ctx = Buffer.from("Signature1");
   return Buffer.concat([head(4, 4), head(3, ctx.length), ctx, bstr(protectedBytes), bstr(Buffer.alloc(0)), bstr(payload)]);
+}
+
+/** Itens de comprimento indefinido: pedaços ou elementos até o byte de parada 0xFF. */
+function indefinite(b, i, major) {
+  if (major === 2 || major === 3) {
+    const parts = [];
+    while (b[i] !== 0xff) { let v; [v, i] = item(b, i); parts.push(major === 2 ? Buffer.from(v) : Buffer.from(v, "utf8")); }
+    const all = Buffer.concat(parts);
+    return [major === 2 ? all : all.toString("utf8"), i + 1];
+  }
+  if (major === 4) {
+    const out = [];
+    while (b[i] !== 0xff) { let v; [v, i] = item(b, i); out.push(v); }
+    return [out, i + 1];
+  }
+  if (major === 5) {
+    const out = new Map();
+    while (b[i] !== 0xff) { let k, v; [k, i] = item(b, i); [v, i] = item(b, i); out.set(k, v); }
+    return [out, i + 1];
+  }
+  throw new Error(`cbor: indefinido em major ${major}`);
 }

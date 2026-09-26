@@ -81,7 +81,8 @@ export async function finish(j: Job, status: string, error?: string) {
   const fresh = getJob(j.id)!;
   if (FINAL.includes(fresh.status)) return;
   const end = now();
-  const secs = fresh.launched_at ? Math.max(60, (end - fresh.launched_at) / 1000) : 0;
+  // só cobra se uma máquina chegou a existir (falha ao pedir a máquina não custa nada)
+  const secs = fresh.launched_at && fresh.instance_id ? Math.max(60, (end - fresh.launched_at) / 1000) : 0;
   const cost = (fresh.rate_cents_h * secs) / 3600;
   db.prepare("UPDATE jobs SET status = ?, finished_at = ?, cost_cents = ?, error = COALESCE(?, error), input_sealed = NULL WHERE id = ?")
     .run(status, end, cost, error ?? null, fresh.id);
