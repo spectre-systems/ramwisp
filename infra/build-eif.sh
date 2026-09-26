@@ -21,7 +21,8 @@ shutdown -h +60
 trap 'aws s3 cp /var/log/wisp-build.log s3://$ARTIFACT_BUCKET/build/$REV.log || true; shutdown -h now' EXIT
 dnf install -y -q docker aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel
 systemctl start docker
-mkdir -p /build && cd /build
+export HOME=/root NITRO_CLI_ARTIFACTS=/build/artifacts
+mkdir -p /build/artifacts && cd /build
 aws s3 cp s3://$ARTIFACT_BUCKET/build/$SRC . && tar xzf $SRC
 docker build -t wisp-enclave:$REV .
 nitro-cli build-enclave --docker-uri wisp-enclave:$REV --output-file enclave.eif > pcrs.json
