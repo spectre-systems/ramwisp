@@ -2,7 +2,16 @@ import { AnimatePresence, motion, useInView } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { Ghost } from './Ghost'
 import { RamBar } from './ui'
-import { PixelIcon } from './PixelIcon'
+const ICON: Record<string, string> = {
+  key: 'M14 7a4 4 0 1 1-3.9 4.9L4 18v3h3v-2h2v-2h2l1.1-1.1A4 4 0 0 1 14 7z',
+  folder: 'M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z',
+  note: 'M5 3h10l4 4v14H5zM8 11h8M8 15h6',
+  lock: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3',
+  eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+}
+function PixelIcon({ name, size = 18, color = 'currentColor', accent }: { name: string; size?: number; color?: string; accent?: string }) {
+  return <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke={accent ?? color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}><path d={ICON[name]} /></svg>
+}
 
 /** Roda um ciclo de passos só enquanto o bloco está na tela. */
 function useSteps(n: number, ms: number) {

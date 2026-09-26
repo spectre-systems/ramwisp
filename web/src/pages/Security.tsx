@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
 import { CopyCommand, Reveal } from '../components/ui'
-import { PixelSky } from '../components/PixelSky'
+import { LiquidBg } from '../components/LiquidBg'
 
 const ROOT_FP = '64:1A:03:21:A3:E2:44:EF:E4:56:46:31:95:D6:06:31:7E:D7:CD:CC:3C:17:56:E0:98:93:F3:C6:8F:79:BB:5B'
 
@@ -12,7 +12,7 @@ export default function Security() {
   const pcrs = info?.pcrs?.pcr0 ?? []
   return (
     <div className="px-page">
-      <PixelSky />
+      <LiquidBg />
       <Nav />
       <section className="section" style={{ paddingTop: 150 }}>
         <div className="wrap" style={{ maxWidth: 860 }}>

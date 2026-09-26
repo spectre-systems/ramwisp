@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api'
-import { PixelSky } from '../components/PixelSky'
+import { LiquidBg } from '../components/LiquidBg'
 import { Logo, Spinner, ThemeToggle } from '../components/ui'
 import { useSession } from '../session'
 import { AuthForm } from './Auth'
@@ -34,7 +34,7 @@ export default function Activate() {
 
   return (
     <div className="auth-page px-page">
-      <PixelSky />
+      <LiquidBg />
       <div style={{ position: 'fixed', top: 18, left: 22, right: 22, display: 'flex', justifyContent: 'space-between', zIndex: 3 }}><Logo /><ThemeToggle /></div>
       <motion.div className="card glow auth-card" layout initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
         <AnimatePresence mode="wait">
