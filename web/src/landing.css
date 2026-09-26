@@ -187,3 +187,5 @@
 .cx-mcp { color: #a3a3a3; }
 .cx-res { color: var(--ok); }
 .cx-ok { color: var(--ok); }
+
+.eb-inline { padding: 18px; border: 1px dashed var(--line-2); color: var(--faint); font-size: 12px; }

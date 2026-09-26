@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { MotionConfig } from 'motion/react'
 import { SessionProvider } from './session'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import Landing from './pages/Landing'
 import './styles.css'
 import './pages.css'
@@ -14,6 +15,7 @@ const Security = lazy(() => import('./pages/Security'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <ErrorBoundary full label="app">
     <MotionConfig reducedMotion="user">
       <SessionProvider>
         <BrowserRouter>
@@ -32,5 +34,6 @@ createRoot(document.getElementById('root')!).render(
         </BrowserRouter>
       </SessionProvider>
     </MotionConfig>
+    </ErrorBoundary>
   </StrictMode>,
 )

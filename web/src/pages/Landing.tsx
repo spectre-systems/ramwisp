@@ -7,6 +7,7 @@ import { GhostMark } from '../components/Mark'
 import { ProductDemo } from '../components/ProductDemo'
 import { BlockField } from '../components/BlockField'
 import { IsoSteps } from '../components/IsoSteps'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 import { CopyCommand, Reveal } from '../components/ui'
 import '../landing.css'
 
@@ -54,7 +55,7 @@ export default function Landing() {
 
       {/* 1 · O que é isso? É comigo? */}
       <section className="hero-pro">
-        <BlockField />
+        <ErrorBoundary label="blocks"><BlockField /></ErrorBoundary>
         <div className="wrap hero-pro-grid">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }}>
             <Tag>RAM for subagents</Tag>
@@ -70,7 +71,7 @@ export default function Landing() {
             <div className="hero-cmd"><InstallTabs /></div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.9, delay: 0.15, ease }}>
-            <ProductDemo />
+            <ErrorBoundary label="demo"><ProductDemo /></ErrorBoundary>
           </motion.div>
         </div>
       </section>
@@ -94,7 +95,7 @@ export default function Landing() {
             <p className="sec-p">No new tool to learn, no integration to write. ramwisp is an MCP server: Claude Code or Codex gains the ability to launch subagents on their own machines, and decides by itself when to use it.</p>
           </Reveal>
         </div>
-        <IsoSteps />
+        <ErrorBoundary label="steps"><IsoSteps /></ErrorBoundary>
         <div className="wrap">
           <Reveal>
             <div className="spec-grid">

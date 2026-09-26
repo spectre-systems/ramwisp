@@ -116,7 +116,9 @@ export function ProductDemo() {
   }, [step, TOTAL, auto])
   useEffect(() => { const t = setInterval(() => setSecs((s) => s + 1), 1000); return () => clearInterval(t) }, [])
 
-  const phase: Phase = step === 0 ? 'idle' : lines[step - 1].phase
+  // ao trocar de cenário/cliente, step ainda é o do anterior por um render (e cada cenário tem um nº de linhas)
+  const shown = Math.min(step, TOTAL)
+  const phase: Phase = shown === 0 ? 'idle' : lines[shown - 1]?.phase ?? 'done'
   const status = (i: number) => phase === 'idle' ? '—' : phase === 'boot' ? 'attesting' : phase === 'run' ? (i <= step % 4 ? 'done' : 'running') : 'evaporated'
 
   return (
@@ -133,11 +135,11 @@ export function ProductDemo() {
       <div className="demo-body">
         <div className={`demo-term mono ${client}`}>
           <AnimatePresence mode="popLayout">
-            {lines.slice(0, step).map((l, i) => (
+            {lines.slice(0, shown).map((l, i) => (
               <motion.div key={`${client}-${tab}-${i}`} className={`dl ${l.cls}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>{l.text}</motion.div>
             ))}
           </AnimatePresence>
-          {step < TOTAL && <span className="caret" />}
+          {shown < TOTAL && <span className="caret" />}
         </div>
         <div className="demo-side">
           <div className="side-block">
