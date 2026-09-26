@@ -57,7 +57,7 @@ export default function AuthPage({ mode }: { mode: 'login' | 'signup' }) {
       <div style={{ position: 'fixed', top: 18, left: 22, right: 22, display: 'flex', justifyContent: 'space-between', zIndex: 3 }}><Logo /><ThemeToggle /></div>
       <motion.div className="card glow auth-card" initial={{ opacity: 0, y: 30, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
         <span className="eyebrow">{mode === 'login' ? 'bem-vindo de volta' : 'crédito grátis para começar'}</span>
-        <h1>{mode === 'login' ? 'Entrar no wisp' : 'Criar sua conta'}</h1>
+        <h1>{mode === 'login' ? 'Entrar no ramwisp' : 'Criar sua conta'}</h1>
         <p className="muted" style={{ margin: 0 }}>{mode === 'login' ? 'Acompanhe seus subagentes, uso e tokens.' : 'Sem cartão. Seus subagentes começam a rodar em minutos.'}</p>
         <AuthForm mode={mode} onDone={(gift) => nav(next + (gift ? (next.includes('?') ? '&' : '?') + 'boas-vindas=1' : ''), { replace: true })} />
         <div className="auth-switch muted">
