@@ -131,10 +131,9 @@ function Board({ step, tick }: { step: number; tick: number }) {
 
 export function IsoSteps() {
   const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { amount: 0.35 })
+  const inView = useInView(ref, { amount: 0.15 })
   const [step, setStep] = useState(0)
   const [tick, setTick] = useState(0)
-  const [paused, setPaused] = useState(false)
   const STEP_TICKS = 30                                   // 3 s por passo (10 quadros/s)
   useEffect(() => { setTick(0) }, [step])
   useEffect(() => {
@@ -142,10 +141,10 @@ export function IsoSteps() {
     const t = setInterval(() => setTick((x) => x + 1), 100)
     return () => clearInterval(t)
   }, [inView])
-  useEffect(() => { if (!paused && tick >= STEP_TICKS) setStep((s) => (s + 1) % STEPS.length) }, [tick, paused])
+  useEffect(() => { if (tick >= STEP_TICKS) setStep((s) => (s + 1) % STEPS.length) }, [tick])
 
   return (
-    <div ref={ref} className="iso-sec" onPointerEnter={() => setPaused(true)} onPointerLeave={() => setPaused(false)}>
+    <div ref={ref} className="iso-sec">
       <div className="iso-sticky">
         <div className="wrap iso-grid-wrap">
           <div className="iso-stage" aria-label="Animação: subagentes saem do notebook, passam pelo portão de atestação, trabalham em máquinas próprias e voltam com a resposta">
@@ -159,7 +158,7 @@ export function IsoSteps() {
                   <span className="mono n">{s.n}</span>
                   <div>
                     <b>{s.t}</b>
-                    {i === step && <span className="step-timer"><motion.i initial={false} animate={{ scaleX: paused ? tick / STEP_TICKS : Math.min(1, tick / STEP_TICKS) }} transition={{ duration: 0.1, ease: 'linear' }} /></span>}
+                    {i === step && <span className="step-timer"><motion.i initial={false} animate={{ scaleX: Math.min(1, tick / STEP_TICKS) }} transition={{ duration: 0.1, ease: 'linear' }} /></span>}
                     <AnimatePresence initial={false}>
                       {i === step && <motion.p initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}>{s.d}</motion.p>}
                     </AnimatePresence>

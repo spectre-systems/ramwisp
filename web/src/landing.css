@@ -160,4 +160,3 @@
 
 .step-timer { display: block; height: 2px; background: var(--line-2); margin-top: 10px; overflow: hidden; }
 .step-timer i { display: block; height: 100%; background: var(--acc); transform-origin: left; }
-.iso-sec:hover .step-timer i { background: var(--muted); }
