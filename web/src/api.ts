@@ -39,12 +39,12 @@ export type PublicInfo = {
 
 export const ACTIVE = ['launching', 'booting', 'fetching_image', 'enclave_starting', 'awaiting_input', 'running'];
 export const usd = (cents: number | null | undefined, digits = 2) =>
-  cents == null ? '—' : `US$ ${(cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
+  cents == null ? '—' : `$${(cents / 100).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 
 export const STATUS_LABEL: Record<string, string> = {
-  queued: 'na fila', launching: 'pedindo máquina', booting: 'ligando', fetching_image: 'carregando imagem',
-  enclave_starting: 'criando enclave', awaiting_input: 'atestada · selando', running: 'trabalhando',
-  done: 'concluído', failed: 'falhou', killed: 'encerrado', expired: 'expirou',
+  queued: 'queued', launching: 'requesting machine', booting: 'booting', fetching_image: 'loading image',
+  enclave_starting: 'starting enclave', awaiting_input: 'attested · sealing', running: 'working',
+  done: 'done', failed: 'failed', killed: 'killed', expired: 'expired',
 };
 
 export const origin = () => window.location.origin;
@@ -53,10 +53,10 @@ export const codexToml = () => '[mcp_servers.ramwisp]\ncommand = "npx"\nargs = [
 
 export function ago(ms: number) {
   const s = Math.round((Date.now() - ms) / 1000);
-  if (s < 60) return `há ${s}s`;
-  if (s < 3600) return `há ${Math.floor(s / 60)} min`;
-  if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
-  return new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return new Date(ms).toLocaleDateString('en-US', { day: '2-digit', month: 'short' });
 }
 
 export function dur(s: number | null | undefined) {

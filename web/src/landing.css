@@ -167,3 +167,23 @@
 .itabs-bar button.on { color: #000; background: var(--acc); border-color: var(--acc); }
 .itabs-bar .dim { margin-left: auto; text-transform: none; letter-spacing: 0; font-size: 12px; }
 .itabs .cmd code { white-space: pre; }
+
+/* demo: formato real de cada cliente */
+.demo-client { display: flex; gap: 0; }
+.demo-client button { padding: 4px 10px; font: inherit; font-size: 12px; background: transparent; color: var(--faint); border: 1px solid var(--line-2); margin-right: -1px; cursor: pointer; }
+.demo-client button.on { background: var(--acc); color: #000; border-color: var(--acc); }
+.demo-term .dl { white-space: pre-wrap; overflow-wrap: anywhere; }
+.demo-term.claude { line-height: 1.6; }
+.cc-you { color: #c9c9c9; background: rgba(255, 255, 255, .06); padding: 2px 6px; margin: 0 -6px 6px; }
+.cc-say { color: var(--text); font-family: var(--sans); margin-top: 6px; }
+.cc-tool { color: var(--text); font-weight: 600; margin-top: 6px; }
+.cc-tool::first-letter { color: var(--ok); }
+.cc-out { color: #9a9a9a; }
+.cc-dim { color: var(--faint); font-style: italic; }
+.demo-term.codex { line-height: 1.55; }
+.cx-role { color: var(--acc); font-weight: 700; margin-top: 4px; }
+.cx-codex, .cx-exec { color: #d58cff; font-weight: 700; margin-top: 8px; }
+.cx-text { color: var(--text); }
+.cx-mcp { color: #a3a3a3; }
+.cx-res { color: var(--ok); }
+.cx-ok { color: var(--ok); }

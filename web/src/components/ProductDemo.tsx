@@ -1,31 +1,95 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { GhostMark } from './Mark'
 
 /**
- * Demonstração do produto na primeira tela (sem ilustração): uma sessão real do Claude Code usando o ramwisp
- * à esquerda e, à direita, o que acontece de fato — o notebook fica leve e 4 máquinas atestadas trabalham.
- * As abas trocam o cenário (o que mais pesa na RAM de um subagente).
+ * Demonstração do produto na primeira tela, no formato real de cada cliente:
+ *  - Claude Code: "> pedido", "⏺ ramwisp - spawn_agent (MCP)(…)", "⎿ {json que o MCP devolve}", "⏺ Bash(git apply …)";
+ *  - Codex: "user" / "codex" / "mcp: ramwisp/spawn_agent started|(completed)" / "exec … succeeded in 38ms"
+ *    (copiado de uma sessão real do Codex com o MCP ramwisp).
+ * À direita, o que acontece de fato: o notebook fica leve e 4 máquinas atestadas trabalham.
  */
-type Line = { k: 'you' | 'tool' | 'sub' | 'ok' | 'done'; t: string }
-const SCENARIOS: { tab: string; ask: string; jobs: string[]; results: string[]; done: string }[] = [
-  { tab: 'Testes', ask: 'roda os testes de cada pacote em paralelo e corrige o que quebrar',
-    jobs: ['api', 'web', 'worker', 'shared'],
-    results: ['api     ✓ 2 corrigidos · patch', 'web     ✓ 214 passando', 'worker  ✓ 1 corrigido · patch', 'shared  ✓ 88 passando'],
-    done: 'Apliquei os 2 patches. A suíte inteira passa.' },
-  { tab: 'Build', ask: 'compila o app web, o mobile e a API e me diz o que falhou',
-    jobs: ['web', 'ios', 'android', 'api'],
-    results: ['web     ✓ build ok · 48s', 'ios     ✗ falta um pod · patch', 'android ✓ build ok · 2m10s', 'api     ✓ build ok · 31s'],
-    done: 'Só o iOS falhou: faltava uma dependência. Patch pronto para revisar.' },
-  { tab: 'Navegador', ask: 'testa os 4 fluxos de checkout num navegador headless',
-    jobs: ['pix', 'cartão', 'boleto', 'cupom'],
-    results: ['pix     ✓ pago em 3,1s', 'cartão  ✓ pago em 4,0s', 'boleto  ✗ botão sumiu · patch', 'cupom   ✓ desconto ok'],
-    done: 'O boleto quebra no mobile. Corrigi o CSS; o patch está pronto.' },
-  { tab: 'Pesquisa', ask: 'compara 4 bibliotecas de fila e roda um benchmark de cada',
-    jobs: ['bullmq', 'pg-boss', 'bee', 'agenda'],
-    results: ['bullmq  ✓ 41k jobs/s', 'pg-boss ✓ 9k jobs/s', 'bee     ✓ 33k jobs/s', 'agenda  ✓ 3k jobs/s'],
-    done: 'BullMQ ganhou com folga. Relatório com os números completos.' },
+type Phase = 'idle' | 'boot' | 'run' | 'done'
+type Line = { cls: string; text: string; phase: Phase }
+type Job = { name: string; mission: string; result: string; patch?: string }
+type Scenario = { tab: string; ask: string; intro: string; jobs: Job[]; done: string }
+
+const IDS = ['wp-3fa91c20', 'wp-8b20de14', 'wp-c4417a09', 'wp-51e0b7d2']
+const SCENARIOS: Scenario[] = [
+  { tab: 'Tests', ask: 'run every package’s tests in parallel and fix whatever breaks',
+    intro: 'I’ll give each package its own ramwisp subagent with 8 GB.',
+    jobs: [
+      { name: 'api', mission: 'Run the tests in packages/api and fix failures', result: '2 failing tests fixed', patch: '3 files changed' },
+      { name: 'web', mission: 'Run the tests in packages/web and fix failures', result: '214 passing' },
+      { name: 'worker', mission: 'Run the tests in packages/worker and fix failures', result: '1 failing test fixed', patch: '1 file changed' },
+      { name: 'shared', mission: 'Run the tests in packages/shared and fix failures', result: '88 passing' },
+    ],
+    done: 'All 4 finished. Applied 2 patches — the whole suite passes.' },
+  { tab: 'Build', ask: 'build web, iOS, Android and the API and tell me what failed',
+    intro: 'Four builds at once won’t fit here — sending each to its own machine.',
+    jobs: [
+      { name: 'web', mission: 'Production build of apps/web', result: 'build ok in 48s' },
+      { name: 'ios', mission: 'Release build of apps/ios', result: 'missing CocoaPod, added it', patch: '2 files changed' },
+      { name: 'android', mission: 'Release build of apps/android', result: 'build ok in 2m10s' },
+      { name: 'api', mission: 'Build and typecheck services/api', result: 'build ok in 31s' },
+    ],
+    done: 'Only iOS failed — a missing pod. Patch applied, all 4 build now.' },
+  { tab: 'Browser', ask: 'test the 4 checkout flows in a headless browser',
+    intro: 'Each flow gets its own machine with a headless Chromium.',
+    jobs: [
+      { name: 'card', mission: 'E2E: checkout paying by card', result: 'paid in 3.1s' },
+      { name: 'paypal', mission: 'E2E: checkout paying with PayPal', result: 'paid in 4.0s' },
+      { name: 'apple-pay', mission: 'E2E: checkout with Apple Pay on mobile', result: 'button hidden on mobile, fixed CSS', patch: '1 file changed' },
+      { name: 'coupon', mission: 'E2E: checkout with a 10% coupon', result: 'discount applied' },
+    ],
+    done: 'Apple Pay was broken on mobile; the CSS fix is applied. 4/4 green.' },
+  { tab: 'Research', ask: 'compare 4 job-queue libraries and benchmark each one',
+    intro: 'One subagent per library, same benchmark on identical 8 GB machines.',
+    jobs: [
+      { name: 'bullmq', mission: 'Benchmark bullmq: 1M jobs, report jobs/s', result: '41k jobs/s' },
+      { name: 'pg-boss', mission: 'Benchmark pg-boss: 1M jobs, report jobs/s', result: '9k jobs/s' },
+      { name: 'bee', mission: 'Benchmark bee-queue: 1M jobs, report jobs/s', result: '33k jobs/s' },
+      { name: 'agenda', mission: 'Benchmark agenda: 1M jobs, report jobs/s', result: '3k jobs/s' },
+    ],
+    done: 'BullMQ wins by a wide margin (41k jobs/s). Full report in bench.md.' },
 ]
+
+function claudeLines(sc: Scenario): Line[] {
+  const patched = sc.jobs.map((j, i) => ({ ...j, id: IDS[i] })).filter((j) => j.patch)
+  return [
+    { cls: 'cc-you', text: `> ${sc.ask}`, phase: 'idle' },
+    { cls: 'cc-say', text: `⏺ ${sc.intro}`, phase: 'idle' },
+    { cls: 'cc-tool', text: `⏺ ramwisp - spawn_agent (MCP)(mission: "${sc.jobs[0].mission}", ram_gb: 8, workspace: ".")`, phase: 'boot' },
+    { cls: 'cc-out', text: `  ⎿  { "id": "${IDS[0]}", "status": "launching", "instance_type": "m7i.xlarge" }`, phase: 'boot' },
+    { cls: 'cc-dim', text: '  … +3 more spawn_agent calls', phase: 'boot' },
+    { cls: 'cc-tool', text: `⏺ ramwisp - wait_agent (MCP)(id: "${IDS[0]}")`, phase: 'run' },
+    { cls: 'cc-out', text: `  ⎿  { "status": "done", "result": "${sc.jobs[0].result}"${sc.jobs[0].patch ? `, "patch_stat": "${sc.jobs[0].patch}"` : ''} }`, phase: 'run' },
+    { cls: 'cc-dim', text: '  … +3 more wait_agent calls', phase: 'run' },
+    ...patched.map((j) => ({ cls: 'cc-tool', text: `⏺ Bash(git apply ~/.config/wisp/patches/${j.id}.patch)`, phase: 'done' as Phase })),
+    ...(patched.length ? [{ cls: 'cc-out', text: '  ⎿  (No content)', phase: 'done' as Phase }] : []),
+    { cls: 'cc-say', text: `⏺ ${sc.done}`, phase: 'done' },
+  ]
+}
+
+function codexLines(sc: Scenario): Line[] {
+  const patched = sc.jobs.map((j, i) => ({ ...j, id: IDS[i] })).filter((j) => j.patch)
+  return [
+    { cls: 'cx-role', text: 'user', phase: 'idle' },
+    { cls: 'cx-text', text: sc.ask, phase: 'idle' },
+    { cls: 'cx-codex', text: 'codex', phase: 'idle' },
+    { cls: 'cx-text', text: sc.intro, phase: 'idle' },
+    ...sc.jobs.map((_, i) => ({ cls: 'cx-mcp', text: `mcp: ramwisp/spawn_agent ${i < 3 ? 'started' : '(completed)'}`, phase: 'boot' as Phase })),
+    { cls: 'cx-mcp', text: 'mcp: ramwisp/wait_agent (completed)  ×4', phase: 'run' },
+    ...sc.jobs.map((j) => ({ cls: 'cx-res', text: `  ${j.name.padEnd(9)} ✓ ${j.result}`, phase: 'run' as Phase })),
+    ...(patched.length ? [
+      { cls: 'cx-exec', text: 'exec', phase: 'done' as Phase },
+      { cls: 'cx-text', text: `bash -lc 'git apply ${patched.map((j) => `${j.id}.patch`).join(' ')}' in ~/project`, phase: 'done' as Phase },
+      { cls: 'cx-ok', text: 'succeeded in 38ms:', phase: 'done' as Phase },
+    ] : []),
+    { cls: 'cx-codex', text: 'codex', phase: 'done' },
+    { cls: 'cx-text', text: sc.done, phase: 'done' },
+  ]
+}
 
 function uptime(s: number) {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = Math.floor(s % 60)
@@ -33,71 +97,64 @@ function uptime(s: number) {
 }
 
 export function ProductDemo() {
+  const [client, setClient] = useState<'claude' | 'codex'>('claude')
   const [tab, setTab] = useState(0)
   const [auto, setAuto] = useState(true)
   const [step, setStep] = useState(0)
   const [secs, setSecs] = useState(1337)
   const sc = SCENARIOS[tab]
-  const lines: Line[] = [
-    { k: 'you', t: sc.ask },
-    { k: 'tool', t: 'spawn_agent × 4 · 8 GB cada' },
-    { k: 'sub', t: 'atestadas ✓ · projeto cifrado' },
-    { k: 'tool', t: 'wait_agent × 4' },
-    ...sc.results.map((t) => ({ k: 'ok' as const, t })),
-    { k: 'done', t: sc.done },
-  ]
+  const lines = useMemo(() => (client === 'claude' ? claudeLines(sc) : codexLines(sc)), [client, sc])
   const TOTAL = lines.length
 
-  useEffect(() => { setStep(0) }, [tab])
+  useEffect(() => { setStep(0) }, [tab, client])
   useEffect(() => {
     const t = setTimeout(() => {
       if (step < TOTAL) setStep(step + 1)
       else if (auto) setTab((x) => (x + 1) % SCENARIOS.length)
-    }, step === 0 ? 500 : step < TOTAL ? 650 : 3800)
+    }, step === 0 ? 500 : step < TOTAL ? 520 : 3800)
     return () => clearTimeout(t)
   }, [step, TOTAL, auto])
   useEffect(() => { const t = setInterval(() => setSecs((s) => s + 1), 1000); return () => clearInterval(t) }, [])
 
-  const phase = step < 2 ? 'idle' : step < 4 ? 'boot' : step < TOTAL - 1 ? 'run' : 'done'
-  const status = (i: number) => phase === 'idle' ? '—' : phase === 'boot' ? 'atestando' : phase === 'run' ? (step - 4 > i ? 'pronto' : 'rodando') : 'evaporou'
+  const phase: Phase = step === 0 ? 'idle' : lines[step - 1].phase
+  const status = (i: number) => phase === 'idle' ? '—' : phase === 'boot' ? 'attesting' : phase === 'run' ? (i <= step % 4 ? 'done' : 'running') : 'evaporated'
 
   return (
     <div className="demo">
       <div className="demo-bar">
-        <span className="demo-menu"><i /><i /><i /></span>
-        <span className="mono">claude <span className="dim">·</span> ~/projeto <span className="dim">@ ramwisp</span></span>
+        <span className="demo-client mono" role="tablist">
+          {(['claude', 'codex'] as const).map((k) => (
+            <button key={k} role="tab" aria-selected={client === k} className={client === k ? 'on' : ''} onClick={() => { setClient(k); setAuto(false) }}>{k === 'claude' ? 'Claude Code' : 'Codex'}</button>
+          ))}
+        </span>
+        <span className="mono dim">~/project</span>
         <span className="demo-chip mono">us-east-1</span>
       </div>
       <div className="demo-body">
-        <div className="demo-term mono">
+        <div className={`demo-term mono ${client}`}>
           <AnimatePresence mode="popLayout">
             {lines.slice(0, step).map((l, i) => (
-              <motion.div key={`${tab}-${i}`} className={`dl dl-${l.k}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-                {l.k === 'you' && <><span className="acc">›</span> {l.t}</>}
-                {l.k === 'tool' && <><span className="acc">●</span> {l.t}</>}
-                {l.k === 'sub' && <span className="dim">  ⎿ {l.t}</span>}
-                {l.k === 'ok' && <span className={l.t.includes('✗') ? 'warn' : 'okc'}>  ⎿ {l.t}</span>}
-                {l.k === 'done' && <><span className="okc">●</span> <span className="plain">{l.t}</span></>}
-              </motion.div>
+              <motion.div key={`${client}-${tab}-${i}`} className={`dl ${l.cls}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>{l.text}</motion.div>
             ))}
           </AnimatePresence>
           {step < TOTAL && <span className="caret" />}
         </div>
         <div className="demo-side">
           <div className="side-block">
-            <div className="side-h mono"><span>SEU NOTEBOOK · 16 GB</span><span className="okc">{phase === 'idle' ? '34%' : '31%'}</span></div>
+            <div className="side-h mono"><span>YOUR LAPTOP · 16 GB</span><span className="okc">{phase === 'idle' ? '34%' : '31%'}</span></div>
             <div className="meter"><motion.i animate={{ width: phase === 'idle' ? '34%' : '31%' }} /></div>
-            <div className="side-note mono dim">{phase === 'idle' ? 'livre para você' : '4 subagentes rodando fora daqui'}</div>
+            <div className="side-note mono dim">{phase === 'idle' ? 'free for you' : '4 subagents running elsewhere'}</div>
           </div>
           <div className="side-block">
-            <div className="side-h mono"><span>MÁQUINAS</span><span className="dim">nitro enclave</span></div>
+            <div className="side-h mono"><span>MACHINES</span><span className="dim">nitro enclave</span></div>
             {sc.jobs.map((j, i) => {
               const st = status(i)
               const ram = phase === 'run' ? [62, 48, 71, 39][i] : phase === 'boot' ? 8 : 0
+              const cls = st === 'running' || st === 'attesting' ? 'rodando' : st === 'done' ? 'pronto' : st === 'evaporated' ? 'evaporou' : ''
               return (
-                <div key={j} className={`vm-row ${st}`}>
+                <div key={j.name} className={`vm-row ${cls}`}>
                   <GhostMark size={16} />
-                  <span className="mono vm-name">{j}</span>
+                  <span className="mono vm-name">{j.name}</span>
                   <span className="meter sm"><motion.i animate={{ width: `${ram}%` }} transition={{ duration: 0.8 }} /></span>
                   <span className="mono vm-st">{st}</span>
                 </div>
@@ -107,7 +164,7 @@ export function ProductDemo() {
         </div>
       </div>
       <div className="demo-foot mono">
-        <span>ENCLAVE ATESTADA <span className="dim">· PCR0 32d2…d0a4e</span></span>
+        <span>ENCLAVE ATTESTED <span className="dim">· PCR0 32d2…d0a4e</span></span>
         <span><span className="live-dot" /> UPTIME {uptime(secs)}</span>
       </div>
       <div className="demo-tabs" role="tablist">

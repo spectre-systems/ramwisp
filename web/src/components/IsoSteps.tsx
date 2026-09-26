@@ -9,11 +9,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
  */
 const COLS = 40, ROWS = 18
 const STEPS = [
-  { n: '01', t: 'Pedir', d: 'Seu agente chama spawn_agent. Os 4 subagentes estão espremidos no seu notebook e a RAM dele está no vermelho. O MCP empacota uma cópia do projeto e pede uma máquina para cada um.' },
-  { n: '02', t: 'Provar', d: 'Cada máquina nova mostra uma prova assinada pelo hardware da AWS com o hash do código que está rodando. O MCP confere no seu computador.' },
-  { n: '03', t: 'Selar', d: 'A prova bateu: cada subagente sai cifrado para uma chave que só existe dentro da sua máquina e atravessa o portão.' },
-  { n: '04', t: 'Rodar', d: 'Cada subagente trabalha na própria máquina, com a RAM que precisa. O seu notebook volta para o verde.' },
-  { n: '05', t: 'Evaporar', d: 'A resposta e o patch voltam cifrados para o notebook. As máquinas são destruídas junto com a memória.' },
+  { n: '01', t: 'Request', d: 'Your agent calls spawn_agent. Four subagents are crammed into your laptop and its RAM is in the red. The MCP packs a copy of the project and asks for one machine per subagent.' },
+  { n: '02', t: 'Prove', d: 'Each new machine shows a proof, signed by AWS hardware, with the hash of the code it is running. The MCP verifies it on your computer.' },
+  { n: '03', t: 'Seal', d: 'The proof checks out: each subagent leaves encrypted to a key that only exists inside its machine, and crosses the gate.' },
+  { n: '04', t: 'Run', d: 'Each subagent works on its own machine, with the RAM it needs. Your laptop is back in the green.' },
+  { n: '05', t: 'Evaporate', d: 'The answer and the patch come back encrypted to your laptop. The machines are destroyed along with their memory.' },
 ]
 
 // fantasminha 5×5: '#' corpo, '.' vazio (olhos e recortes da barra); 2 quadros de barra
@@ -106,9 +106,9 @@ function Board({ step, tick }: { step: number; tick: number }) {
   const g = useBoard(step, tick)
   const [hover, setHover] = useState<number | null>(null)
   const labels = [
-    { t: 'SEU NOTEBOOK', c: NOTE.c, r: NOTE.r - 1.4, on: step === 0 || step === 4 },
-    { t: 'ATESTAÇÃO', c: GATE.c - 2, r: GATE.r - 1.4 + 0, on: step === 1 || step === 2 },
-    { t: 'MÁQUINAS · 4 × 8 GB', c: 24, r: -0.4, on: step >= 1 && step <= 3 },
+    { t: 'YOUR LAPTOP', c: NOTE.c, r: NOTE.r - 1.4, on: step === 0 || step === 4 },
+    { t: 'ATTESTATION', c: GATE.c - 2, r: GATE.r - 1.4 + 0, on: step === 1 || step === 2 },
+    { t: 'MACHINES · 4 × 8 GB', c: 24, r: -0.4, on: step >= 1 && step <= 3 },
   ]
   return (
     <div className="board" onPointerLeave={() => setHover(null)}>
@@ -147,11 +147,11 @@ export function IsoSteps() {
     <div ref={ref} className="iso-sec">
       <div className="iso-sticky">
         <div className="wrap iso-grid-wrap">
-          <div className="iso-stage" aria-label="Animação: subagentes saem do notebook, passam pelo portão de atestação, trabalham em máquinas próprias e voltam com a resposta">
+          <div className="iso-stage" aria-label="Animation: subagents leave the laptop, pass the attestation gate, work on their own machines and come back with the answer">
             <div className="iso"><Board step={step} tick={tick} /></div>
           </div>
           <div className="iso-steps">
-            <span className="tag mono">[ Como funciona, passo a passo ]</span>
+            <span className="tag mono">[ How it works, step by step ]</span>
             <ol>
               {STEPS.map((s, i) => (
                 <li key={s.n} className={i === step ? 'on' : i < step ? 'past' : ''} onClick={() => setStep(i)}>

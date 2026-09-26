@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { Wordmark } from './Ghost'
 
 export function Logo({ size = 22 }: { size?: number }) {
-  return <Link to="/" className="logo" aria-label="wisp, início"><Wordmark size={size} /></Link>
+  return <Link to="/" className="logo" aria-label="ramwisp, home"><Wordmark size={size} /></Link>
 }
 
 export function CopyCommand({ cmd, prompt = '$' }: { cmd: string; prompt?: string }) {
@@ -19,9 +19,9 @@ export function CopyCommand({ cmd, prompt = '$' }: { cmd: string; prompt?: strin
     <div className="cmd">
       {prompt && <span className="prompt">{prompt}</span>}
       <code>{cmd}</code>
-      <button className="btn sm" onClick={copy} aria-label="Copiar comando" style={{ minWidth: 86 }}>
+      <button className="btn sm" onClick={copy} aria-label="Copy command" style={{ minWidth: 86 }}>
         <motion.span key={String(copied)} initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-          {copied ? '✓ copiado' : 'copiar'}
+          {copied ? '✓ copied' : 'copy'}
         </motion.span>
       </button>
     </div>
@@ -38,7 +38,7 @@ export function ThemeToggle() {
     setTheme(next)
   }
   return (
-    <button className="btn ghost theme-toggle" onClick={flip} aria-label={isDark ? 'Tema claro' : 'Tema escuro'} title={isDark ? 'Tema claro' : 'Tema escuro'}>
+    <button className="btn ghost theme-toggle" onClick={flip} aria-label={isDark ? 'Light theme' : 'Dark theme'} title={isDark ? 'Light theme' : 'Dark theme'}>
       <motion.svg key={String(isDark)} initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
         {isDark
           ? <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
@@ -88,16 +88,16 @@ export function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = { done: 'ok', failed: 'err', expired: 'warn', killed: '' }
   const live = ['launching', 'booting', 'fetching_image', 'enclave_starting', 'awaiting_input', 'running'].includes(status)
   const labels: Record<string, string> = {
-    queued: 'na fila', launching: 'pedindo máquina', booting: 'ligando', fetching_image: 'carregando imagem',
-    enclave_starting: 'criando enclave', awaiting_input: 'atestada · selando', running: 'trabalhando',
-    done: 'concluído', failed: 'falhou', killed: 'encerrado', expired: 'expirou',
+    queued: 'queued', launching: 'requesting machine', booting: 'booting', fetching_image: 'loading image',
+    enclave_starting: 'starting enclave', awaiting_input: 'attested · sealing', running: 'working',
+    done: 'done', failed: 'failed', killed: 'killed', expired: 'expired',
   }
   return <span className={`pill ${live ? 'live' : map[status] ?? ''}`}><span className="dot" />{labels[status] ?? status}</span>
 }
 
 export function Spinner({ size = 16 }: { size?: number }) {
   return (
-    <motion.svg width={size} height={size} viewBox="0 0 24 24" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear' }} aria-label="carregando">
+    <motion.svg width={size} height={size} viewBox="0 0 24 24" animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 0.9, ease: 'linear' }} aria-label="loading">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".2" strokeWidth="3" fill="none" />
       <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" fill="none" strokeLinecap="round" />
     </motion.svg>
