@@ -5,43 +5,13 @@ import { api, codexToml, installCmd, type PublicInfo } from '../api'
 import { Footer, Nav } from '../components/Chrome'
 import { GhostMark } from '../components/Mark'
 import { ProductDemo } from '../components/ProductDemo'
+import { BlockField } from '../components/BlockField'
+import { IsoSteps } from '../components/IsoSteps'
 import { CopyCommand, Reveal } from '../components/ui'
 import '../landing.css'
 
 const ease = [0.16, 1, 0.3, 1] as const
 const Tag = ({ children, acc }: { children: string; acc?: boolean }) => <span className={`tag mono ${acc ? 'acc' : ''}`}>[ {children} ]</span>
-
-/** Diagrama de onde o ramwisp entra: o agente fica no notebook, o trabalho pesado vai para enclaves. */
-function WhereDiagram() {
-  return (
-    <svg viewBox="0 0 640 360" className="diagram" role="img" aria-label="Seu Claude Code chama o MCP do ramwisp, que manda cada subagente, cifrado, para uma enclave própria na AWS">
-      <defs>
-        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--acc)" /></marker>
-      </defs>
-      {/* notebook */}
-      <rect x="20" y="110" width="170" height="120" fill="none" stroke="var(--line-3)" />
-      <text x="34" y="134" className="dg-l">SEU NOTEBOOK</text>
-      <text x="34" y="160" className="dg-s">claude code / codex</text>
-      <text x="34" y="180" className="dg-s">+ MCP ramwisp</text>
-      <rect x="34" y="198" width="142" height="8" fill="var(--line)" /><rect x="34" y="198" width="46" height="8" fill="var(--acc)" />
-      <text x="34" y="222" className="dg-s">RAM 31% · livre</text>
-      <line x1="10" y1="244" x2="200" y2="244" stroke="var(--line-3)" />
-      {/* fluxo */}
-      {[0, 1, 2, 3].map((i) => (
-        <g key={i}>
-          <motion.path d={`M190 170 C 270 170, 300 ${60 + i * 80}, 380 ${60 + i * 80}`} fill="none" stroke="var(--acc)" strokeWidth="1.5" strokeDasharray="4 6" markerEnd="url(#arr)"
-            animate={{ strokeDashoffset: [0, -40] }} transition={{ repeat: Infinity, duration: 1.6, ease: 'linear' }} />
-          <rect x="384" y={36 + i * 80} width="236" height="50" fill="var(--bg-2)" stroke="var(--line-3)" />
-          <foreignObject x="396" y={48 + i * 80} width="26" height="26"><GhostMark size={24} stroke="var(--text)" eyes="var(--text)" weight={3.4} /></foreignObject>
-          <text x="432" y={58 + i * 80} className="dg-l">ENCLAVE {i + 1} · 8 GB</text>
-          <text x="432" y={75 + i * 80} className="dg-s">atestada · cifrada · efêmera</text>
-        </g>
-      ))}
-      <text x="222" y="150" className="dg-s acc">cifrado</text>
-      <text x="384" y="352" className="dg-s">AWS · us-east-1 · nitro enclaves</text>
-    </svg>
-  )
-}
 
 const SPECS: [string, string][] = [
   ['Onde roda', 'uma máquina por subagente · AWS Nitro Enclave'],
@@ -66,6 +36,7 @@ export default function Landing() {
 
       {/* 1 · O que é isso? É comigo? */}
       <section className="hero-pro">
+        <BlockField />
         <div className="wrap hero-pro-grid">
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease }}>
             <Tag>RAM para subagentes</Tag>
@@ -104,16 +75,14 @@ export default function Landing() {
             <h2 className="display-2">Seu agente continua no seu terminal.<br /><span className="dim-2">O peso vai para a nuvem.</span></h2>
             <p className="sec-p">Você não troca de ferramenta nem escreve integração. O ramwisp é um MCP: o Claude Code ou o Codex ganha a capacidade de subir subagentes em máquinas próprias e decide sozinho quando usar.</p>
           </Reveal>
-          <div className="where-grid">
-            <Reveal delay={0.05}><div className="panel"><WhereDiagram /></div></Reveal>
-            <Reveal delay={0.1}>
-              <div className="spec">
-                <Tag acc>Um subagente, do começo ao fim</Tag>
-                <h3 className="h3-pro">Uma máquina inteira por tarefa.</h3>
-                {SPECS.map(([k, v]) => <div key={k} className="spec-row"><b>{k}</b><span className="mono">{v}</span></div>)}
-              </div>
-            </Reveal>
-          </div>
+        </div>
+        <IsoSteps />
+        <div className="wrap">
+          <Reveal>
+            <div className="spec-grid">
+              {SPECS.map(([k, v]) => <div key={k} className="spec-row"><b>{k}</b><span className="mono">{v}</span></div>)}
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -214,6 +183,7 @@ export default function Landing() {
       </section>
 
       <section className="sec final-pro">
+        <BlockField intensity={1.2} />
         <div className="wrap final-in">
           <GhostMark size={56} />
           <h2 className="display-2">Deixe a RAM do seu notebook em paz.</h2>
