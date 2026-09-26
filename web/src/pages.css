@@ -293,3 +293,18 @@
 .pay-msg { display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .pay-msg.ok { border-color: var(--ok); color: var(--ok); }
 .pay-msg.err { border-color: var(--err); color: var(--err); }
+
+.admin-badge { font-size: 11px; letter-spacing: .1em; color: #000; background: var(--acc); padding: 3px 8px; align-self: flex-start; }
+.admin-note { font-size: 12px; margin: -14px 0 18px; }
+.admin-link { color: var(--acc) !important; }
+.daily { display: grid; grid-template-columns: repeat(30, 1fr); gap: 4px; height: 160px; align-items: end; }
+.daily-col { position: relative; height: 100%; display: flex; align-items: flex-end; }
+.daily-col i { display: block; width: 100%; background: var(--acc); opacity: .8; min-height: 1px; }
+.daily-col b { position: absolute; top: 0; left: 50%; translate: -50% 0; font-size: 11px; color: var(--ok); font-family: var(--mono); }
+.cust { padding: 8px 12px 18px; }
+.cust-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 900px) { .cust-grid { grid-template-columns: minmax(0, 1fr); } }
+.cust-h { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; font-family: var(--mono); color: var(--muted); margin: 0 0 10px; font-weight: 500; }
+.cust-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.cust-row:first-of-type { border-top: 0; }
+.okc { color: var(--ok); }

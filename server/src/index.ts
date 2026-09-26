@@ -10,6 +10,7 @@ import {
 } from "./auth.ts";
 import { config, INSTANCE_TYPES, RAM_TIERS, pickInstance } from "./config.ts";
 import { credit, db, event, kvGet, kvSet, now } from "./db.ts";
+import { admin } from "./admin.ts";
 import { TOPUP_OPTIONS_USD, createCheckout, handleEvent, paymentStatus, stripeEnabled, verifyWebhook } from "./stripe.ts";
 import { ACTIVE, FINAL, HttpError, type Job, createJob, finish, getJob, publicJob, setStatus, startLoops, tick } from "./jobs.ts";
 
@@ -328,6 +329,7 @@ agent.post("/output", async (c) => {
 });
 
 app.route("/agent", agent);
+app.route("/api/admin", admin);
 
 // ---------------------------------------------------------------- público
 

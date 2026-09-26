@@ -12,6 +12,7 @@ const AuthPage = lazy(() => import('./pages/Auth'))
 const Activate = lazy(() => import('./pages/Activate'))
 const Dashboard = lazy(() => import('./pages/Dashboard'))
 const Security = lazy(() => import('./pages/Security'))
+const Admin = lazy(() => import('./pages/Admin'))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,6 +29,7 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/transparencia" element={<Security />} />
               <Route path="/seguranca" element={<Security />} />
               <Route path="/painel/*" element={<Dashboard />} />
+              <Route path="/admin/*" element={<Admin />} />
               <Route path="*" element={<Landing />} />
             </Routes>
           </Suspense>

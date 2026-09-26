@@ -59,6 +59,7 @@ export default function Dashboard() {
             </NavLink>
           ))}
           <NavLink to="/transparencia"><Icon d={I.shield} />Transparency</NavLink>
+          {me.is_admin && <NavLink to="/admin" className="admin-link"><Icon d={I.pulse} />Admin</NavLink>}
         </nav>
         <div className="credit-mini">
           <div className="faint" style={{ fontSize: 12 }}>Balance</div>
