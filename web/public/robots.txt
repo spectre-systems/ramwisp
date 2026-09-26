@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /painel
+Disallow: /ativar
+Disallow: /api/
+Sitemap: https://ramwisp.com/sitemap.xml
