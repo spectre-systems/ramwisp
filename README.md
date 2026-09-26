@@ -77,7 +77,8 @@ You pay for the machine, per second (60 s minimum). The model runs on your own s
 | up to 8 GB | $0.20 / hour |
 | up to 24 GB | $0.26 / hour |
 
-New accounts start with **$3 of free credit**; top up by card any time. Every subagent reserves its maximum
+New accounts get about **15 hours of free machine time** — a 4 GB subagent, or roughly 44 runs of 20 minutes;
+top up by card any time. Every subagent reserves its maximum
 cost and refunds the rest, so you never go past your balance.
 
 ## Run your own instance

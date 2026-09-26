@@ -48,6 +48,10 @@ export default function Landing() {
   const small = info?.instance_types[0]
   const big = info?.instance_types[1]
   const usd = (v?: number) => (v ? `$${v.toFixed(2)}` : '—')
+  // o crédito grátis em horas de máquina: fala mais do que "US$ 3" (uma de 4 GB custa o mesmo que uma de 8 GB)
+  const freeHours = gift / (small?.usdHour ?? 0.2016)
+  const freeH = Math.round(freeHours)
+  const freeRuns = Math.floor(freeHours * 3)
 
   return (
     <div className="pro">
@@ -79,7 +83,7 @@ export default function Landing() {
       {/* números honestos, sem logos emprestados */}
       <div className="strip mono">
         <div className="wrap strip-in">
-          <span>${gift.toFixed(0)} FREE TO TRY</span><i>·</i>
+          <span>{freeH} H OF RAM FREE</span><i>·</i>
           <span>{usd(small?.usdHour)}/HR PER MACHINE</span><i>·</i>
           <span>READY IN ~1–3 MIN</span><i>·</i>
           <span>UP TO 24 GB PER SUBAGENT</span><i>·</i>
@@ -161,7 +165,8 @@ export default function Landing() {
               </div>
               <div className="pp-card pp-acc">
                 <span className="mono">TO GET STARTED</span>
-                <div className="pp-num">${gift.toFixed(0)}<small> free</small></div>
+                <div className="pp-num">{freeH} h<small> free</small></div>
+                <span className="mono">of a 4 GB subagent · ≈ {freeRuns} runs of 20 min</span>
                 <Link className="bx bx-acc" to="/criar-conta">Create account</Link>
               </div>
             </div>
@@ -222,6 +227,7 @@ const FAQ: [string, string][] = [
   ['Is my code stored anywhere?', 'No. The copy goes encrypted straight into the enclave; our server only holds unreadable bytes until the machine picks them up. At the end, the machine is destroyed along with its memory.'],
   ['Can the subagent commit or push?', 'No. It never gets your git or SSH credentials. Changes come back as a patch and you decide whether to apply it.'],
   ['Why does it take a minute or two to start?', 'It is a brand-new machine, just for you, created for the task. It shines on jobs that take minutes to hours, in parallel.'],
+  ['How far does the free credit go?', 'About 15 hours of a 4 GB subagent (an 8 GB one costs the same) — on average that is 40-odd runs of 20 minutes, or 4 subagents in parallel for almost 4 hours. The credit only pays for the machine: the model runs on your own subscription or key.'],
   ['Is it open source? Can I run it myself?', 'Yes. The code is on GitHub (github.com/spectre-systems/ramwisp). The MCP and the enclave image are Apache-2.0, and you can host your own ramwisp on your AWS account for free, for personal use or inside your company.'],
   ['Can I use my Claude or ChatGPT login?', 'For personal use, yes: the MCP uses the login already on your computer (access token only). For commercial or team use, put an API key in the MCP env instead.'],
   ['How is this different from an agent sandbox?', 'Sandboxes are infrastructure for people building agents, via an SDK. ramwisp is for people who use Claude Code or Codex every day: no code, your own subscription, and an attested enclave so not even we can see what runs.'],
