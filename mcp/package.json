@@ -1,0 +1,11 @@
+{
+  "name": "wisp-mcp",
+  "version": "0.1.0",
+  "description": "MCP do wisp: subagentes Claude/Codex com RAM sob demanda em enclaves efêmeras",
+  "type": "module",
+  "bin": { "wisp": "bin/wisp.js" },
+  "files": ["bin", "src", "nitro-root-g1.pem", "pcrs.json"],
+  "engines": { "node": ">=20" },
+  "scripts": { "test": "node --test test/" },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,8 @@
+node_modules/
+__pycache__/
+server/data/
+*.db
+*.db-*
+web/dist/
+.env
+*.eif
