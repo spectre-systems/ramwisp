@@ -31,6 +31,9 @@ export class HttpError extends Error {
 }
 
 export function createJob(userId: string, tokenId: string | null, b: any) {
+  if (config.launcher === "ec2" && !config.artifactBucket) {
+    throw new HttpError(503, "a capacidade na nuvem ainda está sendo liberada; tente de novo mais tarde");
+  }
   const engine = b.engine ?? "claude";
   if (!["claude", "codex"].includes(engine)) throw new HttpError(400, "engine: claude ou codex");
   const ram = Number(b.ram_gb ?? 2);
