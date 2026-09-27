@@ -10,7 +10,7 @@
 
 Transporte: vsock em produção; sockets unix com WISP_DEV=1 (container sem rede emulando a enclave).
 """
-import json, os, pwd, select, shlex, signal, socket, struct, subprocess, sys, threading, time
+import json, os, pwd, select, shlex, shutil, signal, socket, struct, subprocess, sys, threading, time
 
 import nsm
 from sealed import EnclaveSession, b64, unb64
@@ -158,7 +158,7 @@ def build_command(job):
     env = {}
     if engine == "claude":
         env["ANTHROPIC_API_KEY" if auth["kind"] == "anthropic_key" else "CLAUDE_CODE_OAUTH_TOKEN"] = auth["value"]
-        cmd = (f'timeout {t} claude -p "$MISSAO" --output-format json --max-turns {int(job.get("turns", 20))} '
+        cmd = (f'timeout {t} claude -p "$MISSAO" --output-format stream-json --verbose --max-turns {int(job.get("turns", 20))} '
                "--permission-mode bypassPermissions" + (f" --model {shlex.quote(model)}" if model else ""))
     elif engine == "codex":
         auth_json = json.dumps({"OPENAI_API_KEY": auth["value"]}) if auth["kind"] == "openai_key" else auth["value"]
@@ -223,8 +223,61 @@ def collect_patch(work, pw):
     return {"patch": diff.decode("utf-8", "replace") if diff else "", "patch_stat": stat[-4000:]}
 
 
-def run_agent(job, ctl):
+def setup_scratch(pw):
+    """Home do agente e /tmp em tmpfs do tamanho da RAM da enclave (o rootfs sozinho deixa ~1 GB livre).
+    tmpfs só ocupa memória com o que for escrito; o limite é o teto. Em dev (container sem privilégio) segue sem."""
+    total_mib, _ = mem()
+    size = f"size={int(total_mib * 0.9)}m"
+    try:
+        skel = "/opt/wisp/home-skel"
+        shutil.copytree(pw.pw_dir, skel, symlinks=True, dirs_exist_ok=True)
+        subprocess.run(["mount", "-t", "tmpfs", "-o", f"{size},mode=0755", "tmpfs", pw.pw_dir], check=True, capture_output=True)
+        shutil.copytree(skel, pw.pw_dir, symlinks=True, dirs_exist_ok=True)
+        subprocess.run(["chown", "-R", f"{pw.pw_uid}:{pw.pw_gid}", pw.pw_dir], check=True)
+        subprocess.run(["mount", "-t", "tmpfs", "-o", f"{size},mode=1777", "tmpfs", "/tmp"], check=True, capture_output=True)
+        log("scratch em tmpfs:", size)
+    except (OSError, subprocess.CalledProcessError) as e:
+        log("scratch sem tmpfs:", e)
+
+
+LOG_LINE_MAX = 4000            # por linha
+LOG_TOTAL_MAX = 4 * 1024 * 1024
+STDOUT_KEEP = 2 * 1024 * 1024  # o resultado leva só o fim da saída (o cliente precisa das últimas linhas)
+
+
+class LiveLog:
+    """Linhas de stdout/stderr do agente, cifradas para o cliente e mandadas em lotes pela hospedeira."""
+
+    def __init__(self, session, ctl, started):
+        self.session, self.ctl, self.started = session, ctl, started
+        self.buf, self.seq, self.sent = [], 0, 0
+        self.lock = threading.Lock()
+
+    def add(self, stream, line):
+        if self.sent >= LOG_TOTAL_MAX:
+            return
+        line = line.rstrip("\n")
+        if not line:
+            return
+        with self.lock:
+            self.buf.append({"s": stream, "t": round(time.time() - self.started, 1), "l": line[:LOG_LINE_MAX]})
+
+    def flush(self):
+        with self.lock:
+            batch, self.buf = self.buf, []
+        if not batch:
+            return
+        data = json.dumps(batch).encode()
+        self.sent += len(data)
+        if self.sent >= LOG_TOTAL_MAX:
+            data = json.dumps(batch + [{"s": "wisp", "t": batch[-1]["t"], "l": "live log limit reached"}]).encode()
+        self.seq += 1
+        send_frame(self.ctl, {"type": "log", "seq": self.seq, "sealed": self.session.seal_log(data)})
+
+
+def run_agent(job, ctl, session):
     pw = pwd.getpwnam(AGENT_USER)
+    setup_scratch(pw)
     work = prepare_workspace(job, pw)
     if work:
         job["mission"] = job["mission"] + WORKSPACE_NOTE
@@ -243,25 +296,39 @@ def run_agent(job, ctl):
     started = time.time()
     p = subprocess.Popen(["sh", "-c", cmd], env=env, preexec_fn=drop,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    live = LiveLog(session, ctl, started)
     out, err = [], []
-    readers = [threading.Thread(target=lambda s=s, b=b: b.append(s.read()), daemon=True)
-               for s, b in ((p.stdout, out), (p.stderr, err))]
+
+    def pump(stream, name, keep):
+        for raw in iter(stream.readline, b""):
+            line = raw.decode("utf-8", "replace")
+            keep.append(line)
+            live.add(name, line)
+    readers = [threading.Thread(target=pump, args=(s, n, b), daemon=True)
+               for s, n, b in ((p.stdout, "out", out), (p.stderr, "err", err))]
     for r in readers:
         r.start()
-    peak = 0
-    while p.poll() is None:
-        total, used = mem()
-        peak = max(peak, used)
-        try:
-            send_frame(ctl, {"type": "stat", "mem_total_mib": total, "mem_used_mib": used,
-                             "elapsed_s": int(time.time() - started)})
-        except OSError:
-            os.killpg(p.pid, signal.SIGKILL); raise
-        time.sleep(5)
-    for r in readers:
-        r.join()
-    result = {"stdout": (out[0] if out else b"").decode("utf-8", "replace"),
-            "stderr_tail": (err[0] if err else b"").decode("utf-8", "replace")[-4000:],
+    peak, last_stat = 0, 0
+    try:
+        while p.poll() is None:
+            if time.time() - last_stat >= 5:
+                total, used = mem()
+                peak = max(peak, used)
+                send_frame(ctl, {"type": "stat", "mem_total_mib": total, "mem_used_mib": used,
+                                 "elapsed_s": int(time.time() - started)})
+                last_stat = time.time()
+            live.flush()
+            time.sleep(1)
+        for r in readers:
+            r.join()
+        live.flush()
+    except OSError:
+        os.killpg(p.pid, signal.SIGKILL); raise
+    stdout = "".join(out)
+    if len(stdout) > STDOUT_KEEP:
+        stdout = stdout[-STDOUT_KEEP:].split("\n", 1)[-1]
+    result = {"stdout": stdout,
+            "stderr_tail": "".join(err)[-4000:],
             "exit_code": p.returncode, "duration_s": round(time.time() - started, 1), "peak_mem_mib": peak}
     if work:
         result.update(collect_patch(work, pw))
@@ -293,7 +360,7 @@ def main():
         send_frame(ctl, {"type": "error", "error": "entrada selada inválida"}); return
     del msg
     try:
-        result = run_agent(job, ctl)
+        result = run_agent(job, ctl, session)
     except Exception as e:
         result = {"stdout": "", "stderr_tail": f"falha ao rodar o agente: {e}", "exit_code": 125}
     job.clear()                                        # melhor esforço: a memória some com a enclave de qualquer jeito

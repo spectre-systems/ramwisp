@@ -204,6 +204,8 @@ def main():
                     eg = dict(egress)
                 api("POST", "/agent/stats", {**{k: fr[k] for k in ("mem_total_mib", "mem_used_mib", "elapsed_s")},
                                               "egress": eg})
+            elif fr["type"] == "log":                   # trecho do log ao vivo: cifrado para o cliente, só repassa
+                api("POST", "/agent/log", {"seq": fr["seq"], "sealed": fr["sealed"]})
             elif fr["type"] == "result":
                 with egress_lock:
                     eg = dict(egress)

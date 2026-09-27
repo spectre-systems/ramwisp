@@ -122,6 +122,8 @@ export async function tick() {
       }
     }
     const t = now();
+    // log ao vivo não recolhido: some 24 h depois do fim
+    db.prepare("DELETE FROM job_logs WHERE job_id IN (SELECT id FROM jobs WHERE finished_at IS NOT NULL AND finished_at < ?)").run(t - 86400_000);
     for (const j of db.prepare(`SELECT * FROM jobs WHERE status IN (${ACTIVE.map(() => "?").join(",")})`).all(...ACTIVE) as Job[]) {
       if (j.status === "awaiting_input" && j.attested_at && t - j.attested_at > INPUT_WAIT_MS) {
         await finish(j, "expired", "the client did not send the sealed task in time");

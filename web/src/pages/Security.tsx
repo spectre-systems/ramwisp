@@ -78,6 +78,7 @@ export default function Security() {
               <h3 style={{ marginTop: 0 }}>What stays visible, and what depends on trust</h3>
               <ul className="muted" style={{ paddingLeft: 18, display: 'grid', gap: 6 }}>
                 <li>Metadata: time, duration, RAM, cost, exit code and the domains reached (network traffic goes through the host machine, which only sees the hostname and port; TLS is end-to-end from inside the enclave).</li>
+                <li>The live log (what the subagent is doing) is encrypted inside the enclave for your computer, with the same key as the result. We relay and briefly store the encrypted chunks, so we see their size and timing — not their content. They are deleted when you collect the result, or 24 h after it finishes.</li>
                 <li>You trust the AWS Nitro hardware and PKI.</li>
                 <li>You trust the MCP package you installed: it is what verifies the attestation. The accepted hashes are in it and on this page.</li>
               </ul>

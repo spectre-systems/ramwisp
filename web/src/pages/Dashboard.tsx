@@ -306,7 +306,15 @@ function JobDetail({ j }: { j: Job }) {
         <div><div className="l">Result</div>{j.collected_at ? 'collected and deleted' : j.status === 'done' ? 'waiting for your MCP' : '—'}</div>
       </div>
       {j.error && <div className="error-box" style={{ marginBottom: 12 }}>{j.error}</div>}
-      <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>SUBAGENT LOG</div>
+      <div style={{ margin: '4px 0 14px' }}>
+        <div className="faint" style={{ fontSize: 12, marginBottom: 6, letterSpacing: '.05em' }}>WHAT IT IS DOING</div>
+        <p className="faint" style={{ fontSize: 13, margin: '0 0 8px' }}>
+          Its commands, tool calls and messages are encrypted for the computer that launched it — not even this page can read them.
+          Watch them live there:
+        </p>
+        <CopyCommand cmd={`npx -y ramwisp logs ${j.id} -f`} />
+      </div>
+      <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>MACHINE EVENTS</div>
       <div className="joblog mono">
         {rows.length === 0 && <div className="faint">loading…</div>}
         {rows.map((e, i) => (

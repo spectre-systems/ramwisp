@@ -39,10 +39,14 @@ class EnclaveSession:
         k = _key(self.priv, self.client_pub, self.nonce, b"in", self.pub, self.client_pub)
         return ChaCha20Poly1305(k).decrypt(unb64(msg["iv"]), unb64(msg["ct"]), VERSION + b" in")
 
-    def seal_output(self, plaintext):
+    def seal_output(self, plaintext, aad=b" out"):
         k = _key(self.priv, self.client_pub, self.nonce, b"out", self.pub, self.client_pub)
         iv = os.urandom(12)
-        return {"iv": b64(iv), "ct": b64(ChaCha20Poly1305(k).encrypt(iv, plaintext, VERSION + b" out"))}
+        return {"iv": b64(iv), "ct": b64(ChaCha20Poly1305(k).encrypt(iv, plaintext, VERSION + aad))}
+
+    def seal_log(self, plaintext):
+        """Trecho do log ao vivo: mesma chave de saída, AAD próprio (um trecho nunca passa por resultado e vice-versa)."""
+        return self.seal_output(plaintext, b" log")
 
 
 class ClientSession:
@@ -59,6 +63,6 @@ class ClientSession:
         return {"c_pub": b64(self.pub), "iv": b64(iv),
                 "ct": b64(ChaCha20Poly1305(k).encrypt(iv, plaintext, VERSION + b" in"))}
 
-    def open_output(self, msg):
+    def open_output(self, msg, aad=b" out"):
         k = _key(self.priv, self.enclave_pub, self.nonce, b"out", self.enclave_pub, self.pub)
-        return ChaCha20Poly1305(k).decrypt(unb64(msg["iv"]), unb64(msg["ct"]), VERSION + b" out")
+        return ChaCha20Poly1305(k).decrypt(unb64(msg["iv"]), unb64(msg["ct"]), VERSION + aad)

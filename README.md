@@ -33,6 +33,12 @@ args = ["-y", "ramwisp@latest"]
 tool_timeout_sec = 1000
 ```
 
+**Or as a skill, no MCP** (Claude Code and Codex): installs a `SKILL.md` that teaches the agent the `ramwisp` CLI.
+
+```bash
+npx -y ramwisp@latest skill
+```
+
 The first time a tool is used, the MCP opens your browser to sign in (new accounts get free credit). Then just ask:
 
 > *“run every package’s tests in parallel in ramwisp subagents with 8 GB and fix whatever breaks”*
@@ -40,6 +46,9 @@ The first time a tool is used, the MCP opens your browser to sign in (new accoun
 ## See it in action
 
 <p align="center"><img src="docs/readme/demo.svg" width="100%" alt="A real Claude Code session launching 4 ramwisp subagents"></p>
+
+**Watch it live.** Every command, tool call and message the subagent makes is encrypted for your computer
+only and streamed back while it runs: `npx -y ramwisp logs <id> -f` (or the `agent_progress` tool).
 
 Your agent stays in your terminal. Each subagent gets a copy of your project (only what git tracks — never
 `.env` or anything in `.gitignore`), works on its own machine, and sends back an answer plus a patch you
