@@ -1,10 +1,11 @@
 // Servidor MCP (stdio, JSON-RPC por linha). Sem dependências.
 import { createInterface } from "node:readline";
 import { API, getClient, getToken, setClient, startLogin } from "./account.js";
+import { readLog } from "./log.js";
 import { LoginRequired, killAgent, listAgents, result, resumeWatches, spawnAgent, waitAgent, waitAgents, watch } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.8";
+const VERSION = "0.1.9";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
@@ -30,9 +31,11 @@ How to use it well:
   the subagent works on it and the changes come back as a patch (apply it with the "apply" command after reviewing).
   Without workspace the machine starts empty: put all context in the mission. It has internet (HTTPS) but no git/SSH access of the user.
 - A machine takes ~1-3 min to start; wait_agent waits up to max_wait_s per call (call it again if it returns running).
+- To see what a subagent is doing while it runs, call agent_progress (its commands, tool calls and messages, decrypted
+  here). The user can also watch it live in a terminal with: npx -y ramwisp logs <id> -f
 - Always collect with wait_agent or agent_result: the answer can only be decrypted on this machine.
   Once opened, the result stays readable here for 7 days: calling wait_agent/agent_result again returns the same answer,
-  so a wait that ran in the background never loses it. While running, only status, RAM and cost are visible.
+  so a wait that ran in the background never loses it.
 - Each subagent uses ramwisp credit (the machine) and the user's subscription/key (the model). Don't launch dozens.
 - If a response says the user needs to sign in, show them the link.`;
 
@@ -59,6 +62,10 @@ const TOOLS = [
   { name: "agent_result", annotations: { title: "Read a subagent's result", readOnlyHint: true, openWorldHint: false },
     description: "Result without waiting: returns the answer or the current status (running, RAM in use).",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
+  { name: "agent_progress", annotations: { title: "See what a subagent is doing", readOnlyHint: true, openWorldHint: false },
+    description: "Live log of a running subagent (its tool calls, commands and messages), decrypted on this machine. Returns the last lines; pass after (the returned next) to get only new ones.",
+    inputSchema: { type: "object", required: ["id"], properties: {
+      id: { type: "string" }, after: { type: "integer", default: 0 }, tail: { type: "integer", default: 40, maximum: 400 } } } },
   { name: "kill_agent", annotations: { title: "Kill a subagent", readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     description: "Kill the subagent and destroy its machine immediately.",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
@@ -107,6 +114,9 @@ async function runTool(name, a) {
         if (!a.id) throw new Error("pass id or ids");
         return waitAgent(a.id, a.max_wait_s ?? 900);
       case "agent_result": return result(a.id);
+      case "agent_progress": return readLog(a.id, a.after ?? 0).then((r) => ({ ...r, lines: r.lines.slice(-(a.tail ?? 40)),
+        ...(r.lines.length > (a.tail ?? 40) ? { omitted: r.lines.length - (a.tail ?? 40) } : {}),
+        watch_in_terminal: `npx -y ramwisp logs ${a.id} -f` }));
       case "kill_agent": return killAgent(a.id);
       case "list_agents": return listAgents();
       default: throw new Error(`unknown tool: ${name}`);

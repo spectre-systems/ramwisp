@@ -31,11 +31,11 @@ export function sealInput(priv, enclavePub, nonce, plaintext) {
   return { c_pub: clientPub.toString("base64"), iv: iv.toString("base64"), ct: ct.toString("base64") };
 }
 
-export function openOutput(priv, enclavePub, nonce, msg) {
+export function openOutput(priv, enclavePub, nonce, msg, aad = " out") {
   const { k } = key(priv, enclavePub, nonce, "out");
   const data = Buffer.from(msg.ct, "base64");
   const d = createDecipheriv("chacha20-poly1305", k, Buffer.from(msg.iv, "base64"), { authTagLength: 16 });
-  d.setAAD(Buffer.concat([V, Buffer.from(" out")]), { plaintextLength: data.length - 16 });
+  d.setAAD(Buffer.concat([V, Buffer.from(aad)]), { plaintextLength: data.length - 16 });
   d.setAuthTag(data.subarray(data.length - 16));
   return Buffer.concat([d.update(data.subarray(0, data.length - 16)), d.final()]);
 }

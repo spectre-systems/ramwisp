@@ -15,18 +15,20 @@ const ease = [0.16, 1, 0.3, 1] as const
 
 /** Install for Claude Code OR Codex: the visitor picks the agent they already use. */
 function InstallTabs() {
-  const [tab, setTab] = useState<'claude' | 'codex'>('claude')
+  const [tab, setTab] = useState<'claude' | 'codex' | 'skill'>('claude')
   return (
     <div className="itabs">
       <div className="itabs-bar mono" role="tablist">
-        {(['claude', 'codex'] as const).map((k) => (
-          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{k === 'claude' ? 'Claude Code' : 'Codex'}</button>
+        {(['claude', 'codex', 'skill'] as const).map((k) => (
+          <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{k === 'claude' ? 'Claude Code' : k === 'codex' ? 'Codex' : 'Skill'}</button>
         ))}
-        <span className="dim">{tab === 'claude' ? 'in your terminal' : 'in ~/.codex/config.toml'}</span>
+        <span className="dim">{tab === 'claude' ? 'in your terminal' : tab === 'codex' ? 'in ~/.codex/config.toml' : 'no MCP · Claude Code + Codex'}</span>
       </div>
       {tab === 'claude'
         ? <CopyCommand cmd={installCmd()} />
-        : <CopyCommand cmd={codexToml()} prompt="" />}
+        : tab === 'codex'
+          ? <CopyCommand cmd={codexToml()} prompt="" />
+          : <CopyCommand cmd="npx -y ramwisp@latest skill" />}
     </div>
   )
 }
@@ -34,7 +36,8 @@ const Tag = ({ children, acc }: { children: string; acc?: boolean }) => <span cl
 
 const SPECS: [string, string][] = [
   ['Where it runs', 'one machine per subagent · AWS Nitro Enclave'],
-  ['How it gets there', 'MCP in Claude Code or Codex · spawn_agent()'],
+  ['How it gets there', 'MCP or skill in Claude Code / Codex'],
+  ['While it runs', 'live log, encrypted for your computer only'],
   ['Your project', 'encrypted copy · git ls-files, never .gitignore'],
   ['The model', 'your own subscription or API key'],
   ['What comes back', 'answer + a patch for git apply'],

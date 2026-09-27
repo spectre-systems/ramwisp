@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Monta a imagem da enclave (EIF) numa EC2 descartável e publica EIF + PCRs no bucket.
+# Monta a imagem da enclave (EIF) numa EC2 descartável e publica enclave/<rev>.eif + PCRs no bucket.
 # O PCR0 impresso no fim vai para mcp/pcrs.json: é o que os clientes aceitam.
+# NÃO troca a imagem em produção: isso é o infra/promote-eif.sh <rev>, depois de publicar um MCP que aceite o PCR0 novo.
 # Uso: AWS_PROFILE=wisp ARTIFACT_BUCKET=... infra/build-eif.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,7 +12,7 @@ log() { echo "» $*" >&2; }
 
 tar czf "/tmp/$SRC" -C enclave .
 aws s3 cp --only-show-errors "/tmp/$SRC" "s3://$ARTIFACT_BUCKET/build/$SRC"
-aws s3 cp --only-show-errors parent/parent.py "s3://$ARTIFACT_BUCKET/parent/parent.py"
+aws s3 cp --only-show-errors parent/parent.py "s3://$ARTIFACT_BUCKET/parent/$REV.py"
 
 USERDATA=$(cat <<EOF
 #!/bin/bash
@@ -28,7 +29,6 @@ docker build -t wisp-enclave:$REV .
 nitro-cli build-enclave --docker-uri wisp-enclave:$REV --output-file enclave.eif > pcrs.json
 aws s3 cp enclave.eif s3://$ARTIFACT_BUCKET/enclave/$REV.eif
 aws s3 cp pcrs.json s3://$ARTIFACT_BUCKET/enclave/$REV.pcrs.json
-aws s3 cp enclave.eif s3://$ARTIFACT_BUCKET/enclave/current.eif
 EOF
 )
 SUBNET=$(aws ec2 describe-subnets --filters Name=default-for-az,Values=true --query 'Subnets[0].SubnetId' --output text)

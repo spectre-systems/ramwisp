@@ -96,9 +96,14 @@ CREATE TABLE IF NOT EXISTS ledger (
   reason TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+-- log ao vivo: trechos cifrados pela enclave para o cliente; o servidor só guarda e repassa (apagados ao recolher / em 24 h)
+CREATE TABLE IF NOT EXISTS job_logs (
+  job_id TEXT NOT NULL, seq INTEGER NOT NULL, at INTEGER NOT NULL, sealed TEXT NOT NULL,
+  PRIMARY KEY (job_id, seq)
+);
 `);
 // migrações simples (colunas novas em tabelas que já existem)
-for (const sql of ["ALTER TABLE jobs ADD COLUMN client TEXT"]) {
+for (const sql of ["ALTER TABLE jobs ADD COLUMN client TEXT", "ALTER TABLE jobs ADD COLUMN log_bytes INTEGER NOT NULL DEFAULT 0"]) {
   try { db.exec(sql); } catch { /* já existe */ }
 }
 

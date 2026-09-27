@@ -249,9 +249,19 @@ app.post("/api/jobs/:id/input", requireUser, async (c) => {
   return c.json({ ok: true });
 });
 
+/** Log ao vivo (cifrado): só o MCP/CLI de quem lançou abre. ?after=seq para continuar de onde parou. */
+app.get("/api/jobs/:id/log", requireUser, (c) => {
+  const j = ownJob(c);
+  const after = Number(c.req.query("after") ?? 0) || 0;
+  const entries = db.prepare("SELECT seq, at, sealed FROM job_logs WHERE job_id = ? AND seq > ? ORDER BY seq LIMIT 200")
+    .all(j.id, after) as { seq: number; at: number; sealed: string }[];
+  return c.json({ status: j.status, entries: entries.map((e) => ({ seq: e.seq, at: e.at, sealed: JSON.parse(e.sealed) })) });
+});
+
 app.post("/api/jobs/:id/collected", requireUser, (c) => {
   const j = ownJob(c);
   db.prepare("UPDATE jobs SET output_sealed = NULL, collected_at = ? WHERE id = ?").run(now(), j.id);
+  db.prepare("DELETE FROM job_logs WHERE job_id = ?").run(j.id);
   return c.json({ ok: true });
 });
 
@@ -314,6 +324,19 @@ agent.post("/stats", async (c) => {
   db.prepare("UPDATE jobs SET mem_used_mib = ?, mem_total_mib = ?, peak_mem_mib = MAX(COALESCE(peak_mem_mib, 0), ?), egress = ? WHERE id = ?")
     .run(Number(b.mem_used_mib) || 0, Number(b.mem_total_mib) || 0, Number(b.mem_used_mib) || 0,
       JSON.stringify(b.egress ?? {}).slice(0, 20000), j.id);
+  return c.json({ ok: true });
+});
+
+const LOG_MAX_BYTES = 6 * 1024 * 1024;
+agent.post("/log", async (c) => {
+  const j = c.get("job");
+  const b = await c.req.json().catch(() => ({}));
+  const s = b.sealed, seq = Number(b.seq);
+  if (!Number.isInteger(seq) || seq < 1 || !s?.iv || !s?.ct) return c.json({ error: "invalid log" }, 400);
+  const raw = JSON.stringify({ iv: String(s.iv), ct: String(s.ct) });
+  if ((j.log_bytes ?? 0) + raw.length > LOG_MAX_BYTES) return c.json({ error: "log limit" }, 413);
+  db.prepare("INSERT OR IGNORE INTO job_logs (job_id, seq, at, sealed) VALUES (?, ?, ?, ?)").run(j.id, seq, now(), raw);
+  db.prepare("UPDATE jobs SET log_bytes = log_bytes + ? WHERE id = ?").run(raw.length, j.id);
   return c.json({ ok: true });
 });
 

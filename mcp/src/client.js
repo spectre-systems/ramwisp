@@ -7,6 +7,7 @@ import { call, ensureDir, getToken, writeSecret } from "./account.js";
 import { verifyAttestation } from "./attest.js";
 import { exportKey, importKey, newClientKey, openOutput, sealInput } from "./crypto.js";
 import { engineCredential } from "./creds.js";
+import { logCopy, readLog } from "./log.js";
 
 export const FINAL = ["done", "failed", "killed", "expired"];
 const sealers = new Map();          // id -> Promise (selagem em andamento neste processo)
@@ -145,7 +146,7 @@ export function pruneResults() {
   try {
     const d = ensureDir("results");
     for (const n of readdirSync(d)) {
-      const f = join(d, n);
+      const f = join(d, n);           // resultados e logs guardados
       if (Date.now() - statSync(f).mtimeMs > RESULT_TTL_MS) rmSync(f, { force: true });
     }
   } catch { /* sem pasta ainda */ }
@@ -197,6 +198,8 @@ async function fetchResult(id) {
   if (out.exit_code !== 0 && out.stderr_tail) res.stderr_tail = out.stderr_tail.slice(-1500);
   // a cópia vem ANTES de avisar o servidor e apagar a chave: se algo cair no meio, o resultado não se perde
   writeSecret(resultFile(id), JSON.stringify(res));
+  const log = await readLog(id).catch(() => null);          // o log inteiro também: o servidor apaga ao recolher
+  if (log?.chunks?.length) writeSecret(logCopy(id), JSON.stringify(log.chunks));
   await call("POST", `/api/jobs/${id}/collected`).catch(() => {});
   rmSync(f, { force: true });
   pruneResults();
@@ -270,9 +273,11 @@ export async function waitAgent(id, maxWaitS = 900) {
 }
 
 export async function killAgent(id) {
+  const log = await readLog(id).catch(() => null);         // o que ele estava fazendo, antes de a chave sumir
   const j = await call("DELETE", `/api/jobs/${id}`);
   rmSync(keyFile(id), { force: true });
-  return { id, status: j.status, cost_usd: j.cost_cents != null ? +(j.cost_cents / 100).toFixed(4) : null };
+  return { id, status: j.status, cost_usd: j.cost_cents != null ? +(j.cost_cents / 100).toFixed(4) : null,
+    ...(log?.lines?.length ? { last_log: log.lines.slice(-15) } : {}) };
 }
 
 export async function listAgents() {
