@@ -12,37 +12,54 @@ through the CLI below — never call the HTTP API directly (that would skip the 
 
 Command: `npx -y ramwisp@latest <cmd>` (below just `ramwisp`).
 
-## Launch
+## Launch — and follow it live, without blocking
 
 ```bash
-ramwisp spawn - --ram 4 --workspace . --label "short, non-sensitive" --wait <<'MISSION'
+ramwisp spawn - --ram 4 --workspace . --label "short, non-sensitive" --follow <<'MISSION'
 <complete, self-contained task: everything the subagent needs to know>
 MISSION
 ```
 
+**Always run this command in the background** (Claude Code: Bash with `run_in_background: true`; Codex: a
+background terminal) and go on talking with the user. No model has to sit waiting: the command itself is the
+watcher. Its output is a live, decrypted stream of what happens on the machine, then the result:
+
+```
+   0s  · machine launching
+  74s  · machine awaiting input
+   —   task delivered to wp-1a2b3c4d; live log (encrypted for this computer):
+   2s  ▶ Bash  npm ci
+  31s    ↳ added 812 packages in 29s
+  33s  ▶ Bash  npm test
+  95s  💬 2 tests fail in packages/api; fixing the date parser…
+ 140s  ✔ finished · 9 turns · model $0.210
+=== result ===
+{ "id": "wp-1a2b3c4d", "status": "done", "result": "…", "patch_stat": "…", "apply": "git apply …" }
+```
+
+- Whenever the user asks how it is going — or at natural pauses in the conversation — read that background
+  output and relay the latest lines in a sentence or two ("it's installing deps; tests are running"). Don't
+  paste the whole stream. When the command exits you are notified: report the result.
+- The user can watch the same stream in their own terminal: `npx -y ramwisp logs ID -f`.
+- Several subagents: one background `spawn … --follow` per task, launched together.
 - `-` reads the task from stdin (use a quoted heredoc; no shell-escaping problems).
-- `--ram` 2 | 4 | 8 | 16 | 24 (GB). Browsers / big installs: 8+.
+- `--ram` 2 | 4 | 8 | 16 | 24 (GB); disk inside grows with RAM. Browsers / big installs: 8+.
 - `--workspace DIR` sends an encrypted copy of the project (git-tracked + new non-ignored files, never
   `.gitignore`d ones, max 15 MB compressed). Changes come back as a patch.
 - `--engine codex` to run Codex instead of Claude Code; `--model` to pick a model; `--timeout` seconds (default 1800, max 7200).
-- The machine takes ~1–3 min to start. The command prints the id right away (JSON), then waits until the
-  task is delivered — **don't interrupt it before "task delivered"**, or the subagent is stopped.
-- With `--wait` it stays until the end and prints the result JSON (`result` = the answer).
-
-**Don't block the conversation.** Run the `spawn … --wait` command in the background (Claude Code: Bash with
-`run_in_background: true` — you are notified when it exits; Codex: a background terminal, or spawn without
-`--wait` and collect later). Several subagents: one background command each, then carry on with the user.
+- The machine takes ~1–3 min to start. **Don't stop the command before "task delivered"**: the task is sent from
+  this computer once the machine proves itself; stopping earlier stops the subagent.
 
 ## While it runs
 
-- `ramwisp logs ID` — what it is doing: commands, tool calls, messages (decrypted here). `-f` follows live.
-  Tell the user they can watch it themselves in a terminal: `npx -y ramwisp logs ID -f`.
+- `ramwisp logs ID` — everything so far (decrypted here); `-f` follows.
 - `ramwisp ls` — balance and running subagents.
-- `ramwisp kill ID` — stop it and destroy the machine (prints its last log lines).
+- `ramwisp kill ID` — stop it and destroy the machine (prints its last log lines). Do this if the log shows it
+  going the wrong way, and tell the user why.
 
 ## Collect
 
-- `ramwisp wait ID` (blocks until done) or `ramwisp result ID` (instant). The result stays readable on this
+- The `--follow` command already prints the result at the end. Otherwise `ramwisp wait ID [--follow]` or `ramwisp result ID` (instant). The result stays readable on this
   computer for 7 days, so calling it again is safe.
 - With a workspace: the JSON has `patch_stat` and an `apply` command (`git apply …`). Review the patch, then apply.
 - `error` containing "sign in" / login: run `ramwisp login` and give the user the link it prints.

@@ -48,7 +48,8 @@ The first time a tool is used, the MCP opens your browser to sign in (new accoun
 <p align="center"><img src="docs/readme/demo.svg" width="100%" alt="A real Claude Code session launching 4 ramwisp subagents"></p>
 
 **Watch it live.** Every command, tool call and message the subagent makes is encrypted for your computer
-only and streamed back while it runs: `npx -y ramwisp logs <id> -f` (or the `agent_progress` tool).
+only and streamed back while it runs: `npx -y ramwisp logs <id> -f`, or launch with `ramwisp spawn … --follow`
+to get the live stream and then the result from one command (the skill runs it in the background by default).
 
 Your agent stays in your terminal. Each subagent gets a copy of your project (only what git tracks — never
 `.env` or anything in `.gitignore`), works on its own machine, and sends back an answer plus a patch you

@@ -231,7 +231,7 @@ export function watch(id) {
  * rodar: a missão só existia na memória daquele processo. Esse é derrubado na hora, para não ficar cobrando à toa.
  * Se o selador está vivo (outra sessão, ou o ajudante do Codex, que sobe o próprio MCP), só vigia.
  */
-export function resumeWatches() {
+export function resumeWatches({ watchLive = true } = {}) {
   let names = [];
   try { names = readdirSync(ensureDir("jobs")).filter((n) => n.endsWith(".json")); } catch { return; }
   for (const n of names) {
@@ -239,7 +239,7 @@ export function resumeWatches() {
     if (sealers.has(id) || watchers.has(id)) continue;
     let k;
     try { k = JSON.parse(readFileSync(join(ensureDir("jobs"), n), "utf8")); } catch { continue; }
-    if (k.enclave_pub || alive(k.pid)) watch(id);
+    if (k.enclave_pub || alive(k.pid)) { if (watchLive) watch(id); }
     else if (getToken()) {
       killAgent(id).then(() => process.stderr.write(`ramwisp: ${id} was never delivered (the session ended first); stopped it\n`),
         () => {});

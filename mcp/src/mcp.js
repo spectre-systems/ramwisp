@@ -5,7 +5,7 @@ import { readLog } from "./log.js";
 import { LoginRequired, killAgent, listAgents, result, resumeWatches, spawnAgent, waitAgent, waitAgents, watch } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.9";
+const VERSION = "0.1.10";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
@@ -21,9 +21,13 @@ How to use it well:
   when it finishes and keeps it on this machine for 7 days, so nothing is lost if nobody is waiting. By default,
   hand the waiting to a small background helper and keep working with the user:
   - Claude Code: launch a background Agent with model "sonnet" whose only job is to call wait_agent with the ids
-    (repeat while it returns running) and report the full result text back. It must not spawn or kill anything.
+    (repeat while it returns running) and report the full result text back, plus a short timeline of what the
+    subagent did (from agent_progress). It must not spawn or kill anything.
   - Codex: spawn a sub-agent with model "gpt-6-luna" for that same job, then keep working and check on it later.
   - Without sub-agents: carry on with other work and call agent_result (instant) now and then.
+- Keep the user in the loop while it runs: whenever they ask how it is going, and at natural pauses, call
+  agent_progress (instant, doesn't block) and relay the latest lines in a sentence or two. If the log shows the
+  subagent going the wrong way, say so and offer to kill it.
   Only wait in the main thread yourself if the user explicitly asks to wait, or if this session is about to end
   (one-shot runs like \`claude -p\` or \`codex exec\`): the task is sent from this process once the machine is up,
   so ending the session before status is "running" stops the subagent.
@@ -95,7 +99,8 @@ export function nextStep(id, client = getClient()) {
       ? `launch a background Agent with model "sonnet" whose only job is to call mcp__ramwisp__wait_agent`
       : `use a small background helper to call wait_agent`;
   return `Running. Don't block the user: ${how} with ids ["${id}"] (plus any other ids you just spawned), ` +
-    `repeating while it returns running, and report the full result. If you can't, call agent_result later. ` +
+    `repeating while it returns running, and report the full result. Meanwhile, when the user asks how it is going, ` +
+    `call agent_progress (instant) and relay the latest lines. Without a helper, call agent_result later. ` +
     `Keep this session open at least until status is "running": the task is still being sent from here, ` +
     `and if the session ends first the subagent is stopped. After that the result is collected and kept on this machine automatically.`;
 }
