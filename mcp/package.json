@@ -1,6 +1,6 @@
 {
   "name": "ramwisp",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "ramwisp: Claude Code and Codex subagents on their own cloud machines (AWS Nitro Enclaves), with your own subscription. MCP + CLI.",
   "type": "module",
   "bin": {
