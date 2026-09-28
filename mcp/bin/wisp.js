@@ -5,6 +5,7 @@ import { FINAL, killAgent, listAgents, resumeWatches, result, sealed, spawnAgent
 import { call } from "../src/account.js";
 import { serve } from "../src/mcp.js";
 import { readLog } from "../src/log.js";
+import { openTerminal } from "../src/tty.js";
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -48,6 +49,7 @@ const HELP = `ramwisp — subagents with on-demand RAM (${API})
                                      --follow: stream the live log, then print the result
   ramwisp spawn - …                  read the task from stdin (heredoc)
   ramwisp logs ID [-f]               what it is doing (decrypted here); -f follows live
+  ramwisp ssh ID [-c "cmd"]          a terminal inside the machine while it runs (end-to-end encrypted; Ctrl-] leaves)
   ramwisp wait ID [--follow] | result ID | kill ID
   ramwisp ls
   ramwisp skill                      install the ramwisp skill for Claude Code and Codex (no MCP needed)
@@ -112,6 +114,29 @@ async function main() {
         console.log(`${name}: installed ${join(dest, "SKILL.md")}`);
       }
       return console.log("Restart the session; ask for work \"on ramwisp\". First time: npx -y ramwisp login");
+    }
+    case "ssh": case "shell": {
+      const id = rest[0];
+      const ci = rest.indexOf("-c");
+      const cmd = ci >= 0 ? rest[ci + 1] : flag("command");
+      const tty = process.stdin.isTTY && !cmd;
+      const t = await openTerminal(id, {
+        cmd, cols: process.stdout.columns ?? 80, rows: process.stdout.rows ?? 24, term: process.env.TERM,
+        onWait: (s) => console.error(`waiting for ${id} to start running (now: ${s})…`),
+        onReady: (m) => tty && console.error(`\x1b[2m— ${id}: encrypted terminal in ${m.cwd}. Ctrl-] to leave; the machine ends when the subagent finishes.\x1b[0m`),
+        onData: (d) => process.stdout.write(d),
+      });
+      if (tty) {
+        process.stdin.setRawMode(true);
+        process.stdin.on("data", (d) => { if (d.includes(0x1d)) t.close(); else t.write(d); });
+        process.stdout.on("resize", () => t.resize(process.stdout.columns, process.stdout.rows));
+      } else if (!cmd) {
+        process.stdin.on("data", (d) => t.write(d)).on("end", () => t.write("exit\n"));
+      }
+      const code = await t.done;
+      if (tty) process.stdin.setRawMode(false);
+      if (code === null) console.error(`\n— ${id} finished; its machine is gone.`);
+      process.exit(code ?? 0);
     }
     case "wait":
       if (rest.includes("--follow") || rest.includes("-f")) { await followLog(rest[0]); console.log("=== result ==="); }

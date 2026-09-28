@@ -11,6 +11,7 @@ import {
 import { config, INSTANCE_TYPES, RAM_TIERS, pickInstance } from "./config.ts";
 import { credit, db, event, kvGet, kvSet, now } from "./db.ts";
 import { admin } from "./admin.ts";
+import { clientReceive, clientSend, enclaveReceive, enclaveSend, validFrames } from "./tty.ts";
 import { TOPUP_OPTIONS_USD, createCheckout, handleEvent, paymentStatus, stripeEnabled, verifyWebhook } from "./stripe.ts";
 import { ACTIVE, FINAL, HttpError, type Job, createJob, finish, getJob, publicJob, setStatus, startLoops, tick } from "./jobs.ts";
 
@@ -258,6 +259,23 @@ app.get("/api/jobs/:id/log", requireUser, (c) => {
   return c.json({ status: j.status, entries: entries.map((e) => ({ seq: e.seq, at: e.at, sealed: JSON.parse(e.sealed) })) });
 });
 
+/** Terminal cifrado (`ramwisp ssh`): quadros do CLI para a enclave, e de volta (?sid=&after=&wait=). */
+app.post("/api/jobs/:id/tty", requireUser, async (c) => {
+  const j = ownJob(c);
+  if (j.status !== "running") return c.json({ error: `the subagent is ${j.status}; a terminal only opens while it runs` }, 409);
+  const frames = validFrames((await c.req.json().catch(() => ({}))).frames);
+  if (!frames) return c.json({ error: "invalid frames" }, 400);
+  if (!clientSend(j.id, frames)) return c.json({ error: "terminal queue full" }, 429);
+  return c.json({ ok: true });
+});
+
+app.get("/api/jobs/:id/tty", requireUser, async (c) => {
+  const j = ownJob(c);
+  const r = await clientReceive(j.id, String(c.req.query("sid") ?? ""), Number(c.req.query("after") ?? 0) || 0,
+    Number(c.req.query("wait") ?? 20) || 0);
+  return c.json({ status: getJob(j.id)!.status, ...r });
+});
+
 app.post("/api/jobs/:id/collected", requireUser, (c) => {
   const j = ownJob(c);
   db.prepare("UPDATE jobs SET output_sealed = NULL, collected_at = ? WHERE id = ?").run(now(), j.id);
@@ -337,6 +355,15 @@ agent.post("/log", async (c) => {
   if ((j.log_bytes ?? 0) + raw.length > LOG_MAX_BYTES) return c.json({ error: "log limit" }, 413);
   db.prepare("INSERT OR IGNORE INTO job_logs (job_id, seq, at, sealed) VALUES (?, ?, ?, ?)").run(j.id, seq, now(), raw);
   db.prepare("UPDATE jobs SET log_bytes = log_bytes + ? WHERE id = ?").run(raw.length, j.id);
+  return c.json({ ok: true });
+});
+
+agent.get("/tty/in", async (c) => c.json({ frames: await enclaveReceive(c.get("job").id, Number(c.req.query("wait") ?? 20) || 0) }));
+
+agent.post("/tty/out", async (c) => {
+  const frames = validFrames((await c.req.json().catch(() => ({}))).frames);
+  if (!frames) return c.json({ error: "invalid frames" }, 400);
+  enclaveSend(c.get("job").id, frames);
   return c.json({ ok: true });
 });
 

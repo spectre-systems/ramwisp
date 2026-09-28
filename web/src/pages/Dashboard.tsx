@@ -313,6 +313,12 @@ function JobDetail({ j }: { j: Job }) {
           Watch them live there:
         </p>
         <CopyCommand cmd={`npx -y ramwisp logs ${j.id} -f`} />
+        {j.status === 'running' && (
+          <>
+            <p className="faint" style={{ fontSize: 13, margin: '10px 0 8px' }}>Or step inside its machine (encrypted terminal, only from that computer):</p>
+            <CopyCommand cmd={`npx -y ramwisp ssh ${j.id}`} />
+          </>
+        )}
       </div>
       <div className="faint" style={{ fontSize: 12, margin: '4px 0 6px', letterSpacing: '.05em' }}>MACHINE EVENTS</div>
       <div className="joblog mono">

@@ -50,6 +50,12 @@ test("signup → free credit → API token → account and job routes", async ()
   assert.equal((await fetch(`${BASE}/api/jobs/wp-nope/log`, { headers: auth })).status, 404);
   // rotas da hospedeira exigem o token do job
   assert.equal((await fetch(`${BASE}/agent/log`, { method: "POST", body: "{}" })).status, 401);
+  // terminal: job alheio/inexistente não abre; rotas da hospedeira exigem o token do job
+  assert.equal((await fetch(`${BASE}/api/jobs/wp-nope/tty`, { method: "POST", headers: { ...auth, "content-type": "application/json" },
+    body: JSON.stringify({ frames: [{ sid: "x", n: 0, ct: "y" }] }) })).status, 404);
+  assert.equal((await fetch(`${BASE}/api/jobs/wp-nope/tty?sid=x&wait=0`, { headers: auth })).status, 404);
+  assert.equal((await fetch(`${BASE}/agent/tty/in?wait=0`)).status, 401);
+  assert.equal((await fetch(`${BASE}/agent/tty/out`, { method: "POST", body: "{}" })).status, 401);
   // back office: token de MCP nunca abre
   assert.equal((await fetch(`${BASE}/api/admin/overview`, { headers: auth })).status, 403);
 });

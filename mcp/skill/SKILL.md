@@ -53,6 +53,11 @@ watcher. Its output is a live, decrypted stream of what happens on the machine, 
 ## While it runs
 
 - `ramwisp logs ID` — everything so far (decrypted here); `-f` follows.
+- `ramwisp ssh ID -c "cmd"` — run a command inside the machine while it runs (as its user, in its project
+  folder): `ps aux`, `ls`, `df -h`, or read its full conversation in `~/.claude/projects/*/*.jsonl`. End-to-end
+  encrypted; only this computer can open it. Look, don't disturb its work unless the user asks.
+- The user can get an interactive terminal there themselves: `npx -y ramwisp ssh ID` (Ctrl-] leaves). The
+  machine exists only while the subagent runs.
 - `ramwisp ls` — balance and running subagents.
 - `ramwisp kill ID` — stop it and destroy the machine (prints its last log lines). Do this if the log shows it
   going the wrong way, and tell the user why.

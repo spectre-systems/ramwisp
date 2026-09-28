@@ -7,7 +7,7 @@ Ela só sobe a enclave, dá saída de rede (TCP cego, host:porta) e repassa byte
   python3 parent.py /etc/wisp/job.json          produção (Nitro Enclaves, vsock)
   python3 parent.py job.json --dev              dev: enclave = container docker sem rede, sockets unix
 """
-import ipaddress, json, os, select, socket, struct, subprocess, sys, tempfile, threading, time, urllib.request
+import ipaddress, json, os, queue, select, socket, struct, subprocess, sys, tempfile, threading, time, urllib.request
 
 ENCLAVE_CID, CTL_PORT, EGRESS_PORT = 16, 5005, 8001
 ALLOWED_PORTS = {443, 80}
@@ -152,8 +152,50 @@ def dial_enclave(sock_dir, wait_s=180):
             time.sleep(1)
 
 
+SEND_LOCK = threading.Lock()
+
+
 def send_frame(s, obj):
-    d = json.dumps(obj).encode(); s.sendall(struct.pack(">I", len(d)) + d)
+    d = json.dumps(obj).encode()
+    with SEND_LOCK:
+        s.sendall(struct.pack(">I", len(d)) + d)
+
+
+class TtyRelay:
+    """Terminal cifrado (`ramwisp ssh`): só repassa quadros que esta máquina não consegue abrir.
+    Cliente → enclave: long-poll em /agent/tty/in. Enclave → cliente: fila e POST em lote em /agent/tty/out."""
+
+    def __init__(self, ctl):
+        self.ctl, self.out, self.stop = ctl, queue.Queue(), threading.Event()
+        threading.Thread(target=self.pull, daemon=True).start()
+        threading.Thread(target=self.push, daemon=True).start()
+
+    def pull(self):
+        while not self.stop.is_set():
+            try:
+                code, body = api("GET", "/agent/tty/in?wait=20", timeout=40)
+            except RuntimeError:
+                time.sleep(2); continue
+            if code == 410:
+                return
+            for f in (body or {}).get("frames", []) if code == 200 else []:
+                try:
+                    send_frame(self.ctl, {"op": "tty", "f": f})
+                except OSError:
+                    return
+
+    def push(self):
+        while not self.stop.is_set():
+            try:
+                frames = [self.out.get(timeout=1)]
+            except queue.Empty:
+                continue
+            while not self.out.empty() and len(frames) < 64:
+                frames.append(self.out.get_nowait())
+            try:
+                api("POST", "/agent/tty/out", {"frames": frames})
+            except RuntimeError as e:
+                log("tty:", e)
 
 
 def recv_frame(s):
@@ -197,6 +239,7 @@ def main():
         send_frame(ctl, {"op": "run", "sealed": sealed})
         del sealed
         status("running")
+        tty = TtyRelay(ctl)
         while True:
             fr = recv_frame(ctl)
             if fr["type"] == "stat":
@@ -204,12 +247,15 @@ def main():
                     eg = dict(egress)
                 api("POST", "/agent/stats", {**{k: fr[k] for k in ("mem_total_mib", "mem_used_mib", "elapsed_s")},
                                               "egress": eg})
+            elif fr["type"] == "tty":                   # quadro do terminal, cifrado para o cliente
+                tty.out.put(fr["f"])
             elif fr["type"] == "log":                   # trecho do log ao vivo: cifrado para o cliente, só repassa
                 api("POST", "/agent/log", {"seq": fr["seq"], "sealed": fr["sealed"]})
             elif fr["type"] == "result":
                 with egress_lock:
                     eg = dict(egress)
                 api("POST", "/agent/output", {"sealed": fr["sealed"], "meta": fr.get("meta", {}), "egress": eg})
+                tty.stop.set()
                 send_frame(ctl, {"op": "ack"})
                 break
             elif fr["type"] == "error":

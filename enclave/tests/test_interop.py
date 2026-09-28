@@ -5,7 +5,7 @@ import base64, json, os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
-from sealed import EnclaveSession, b64  # noqa: E402
+from sealed import EnclaveSession, TtyChannel, b64, unb64  # noqa: E402
 
 STDIN = "const i = JSON.parse(await new Promise((r) => { let s = ''; process.stdin.on('data', (d) => s += d).on('end', () => r(s)); }));"
 CRYPTO = "file://" + os.path.join(os.path.dirname(os.path.dirname(HERE)), "mcp", "src", "crypto.js")
@@ -45,7 +45,35 @@ def main():
     assert r["out"] == "resultado ✓", r
     assert r["log"] == '[{"s":"out","l":"linha"}]', r
     assert r["cross"] == "recusou", "um trecho de log não pode passar por resultado"
-    print("interop ok: entrada JS→Python, resultado e log Python→JS, AAD separado")
+
+    # terminal: cliente (JS) abre sessão e manda 2 quadros; a enclave (Python) abre, responde; replay é recusado
+    t = node(f"""
+      import {{ importKey, TtyChannel }} from "{CRYPTO}";
+      {STDIN}
+      const ch = new TtyChannel(importKey(i.priv), Buffer.from(i.enc_pub, "base64"), Buffer.from(i.nonce, "base64"));
+      const frames = [ch.seal(Buffer.from('{{"t":"open"}}')), ch.seal(Buffer.from("ls -la\\n"))];
+      console.log(JSON.stringify({{ sid: ch.sid.toString("base64"), frames }}));
+    """, {"priv": c["priv"], "enc_pub": b64(enc.pub), "nonce": b64(nonce)})
+    tty = TtyChannel(enc, unb64(t["sid"]))
+    assert tty.open(t["frames"][0]) == b'{"t":"open"}'
+    assert tty.open(t["frames"][1]) == b"ls -la\n"
+    try:
+        tty.open(t["frames"][1]); raise AssertionError("replay aceito")
+    except ValueError:
+        pass
+    back = [tty.seal(b"total 8\r\n"), tty.seal(b"$ ")]
+    r2 = node(f"""
+      import {{ importKey, TtyChannel }} from "{CRYPTO}";
+      {STDIN}
+      const ch = new TtyChannel(importKey(i.priv), Buffer.from(i.enc_pub, "base64"), Buffer.from(i.nonce, "base64"), Buffer.from(i.sid, "base64"));
+      const out = i.back.map((f) => ch.open(f).toString());
+      let replay = "recusou"; try {{ ch.open(i.back[0]); replay = "aceitou"; }} catch {{}}
+      let other = "recusou"; try {{ new TtyChannel(importKey(i.priv), Buffer.from(i.enc_pub, "base64"), Buffer.from(i.nonce, "base64")).open(i.back[0]); other = "aceitou"; }} catch {{}}
+      console.log(JSON.stringify({{ out, replay, other }}));
+    """, {"priv": c["priv"], "enc_pub": b64(enc.pub), "nonce": b64(nonce), "sid": t["sid"], "back": back})
+    assert r2["out"] == ["total 8\r\n", "$ "], r2
+    assert r2["replay"] == "recusou" and r2["other"] == "recusou", r2
+    print("interop ok: entrada JS→Python, resultado e log Python→JS, AAD separado, terminal nos dois sentidos, replay e sessão alheia recusados")
 
 
 if __name__ == "__main__":

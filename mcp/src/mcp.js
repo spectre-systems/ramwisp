@@ -2,10 +2,11 @@
 import { createInterface } from "node:readline";
 import { API, getClient, getToken, setClient, startLogin } from "./account.js";
 import { readLog } from "./log.js";
+import { openTerminal } from "./tty.js";
 import { LoginRequired, killAgent, listAgents, result, resumeWatches, spawnAgent, waitAgent, waitAgents, watch } from "./client.js";
 
 const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
-const VERSION = "0.1.10";
+const VERSION = "0.1.11";
 
 const INSTRUCTIONS = `ramwisp runs Claude Code or Codex subagents on ephemeral cloud machines with the RAM you ask for,
 without loading this machine. Each subagent starts inside an isolated enclave (AWS Nitro): before sending anything,
@@ -37,6 +38,8 @@ How to use it well:
 - A machine takes ~1-3 min to start; wait_agent waits up to max_wait_s per call (call it again if it returns running).
 - To see what a subagent is doing while it runs, call agent_progress (its commands, tool calls and messages, decrypted
   here). The user can also watch it live in a terminal with: npx -y ramwisp logs <id> -f
+- To look inside a running subagent's machine (processes, files, its full transcript), call agent_exec with a shell
+  command. The user can open an interactive, end-to-end encrypted terminal there with: npx -y ramwisp ssh <id>
 - Always collect with wait_agent or agent_result: the answer can only be decrypted on this machine.
   Once opened, the result stays readable here for 7 days: calling wait_agent/agent_result again returns the same answer,
   so a wait that ran in the background never loses it.
@@ -70,6 +73,10 @@ const TOOLS = [
     description: "Live log of a running subagent (its tool calls, commands and messages), decrypted on this machine. Returns the last lines; pass after (the returned next) to get only new ones.",
     inputSchema: { type: "object", required: ["id"], properties: {
       id: { type: "string" }, after: { type: "integer", default: 0 }, tail: { type: "integer", default: 40, maximum: 400 } } } },
+  { name: "agent_exec", annotations: { title: "Run a command on a subagent's machine", readOnlyHint: false, openWorldHint: false },
+    description: "Run a shell command inside a RUNNING subagent's machine (as its user, in its project folder) and return the output — e.g. ps, ls, cat a file, tail its transcript in ~/.claude/projects. End-to-end encrypted; the machine ends when the subagent finishes. Don't disturb its work unless asked.",
+    inputSchema: { type: "object", required: ["id", "command"], properties: {
+      id: { type: "string" }, command: { type: "string" }, timeout_s: { type: "integer", default: 60, maximum: 600 } } } },
   { name: "kill_agent", annotations: { title: "Kill a subagent", readOnlyHint: false, destructiveHint: true, idempotentHint: true },
     description: "Kill the subagent and destroy its machine immediately.",
     inputSchema: { type: "object", required: ["id"], properties: { id: { type: "string" } } } },
@@ -105,6 +112,16 @@ export function nextStep(id, client = getClient()) {
     `and if the session ends first the subagent is stopped. After that the result is collected and kept on this machine automatically.`;
 }
 
+async function execOn(id, command, timeoutS) {
+  const chunks = [];
+  const t = await openTerminal(id, { cmd: String(command), cols: 200, rows: 50, term: "dumb", onData: (d) => chunks.push(d) });
+  const timer = new Promise((r) => setTimeout(() => { t.close(); r("timeout"); }, timeoutS * 1000).unref());
+  const code = await Promise.race([t.done, timer]);
+  const out = Buffer.concat(chunks).toString("utf8").replace(/\r\n/g, "\n");
+  return { id, exit_code: code === "timeout" ? null : code, ...(code === "timeout" ? { error: `timeout after ${timeoutS}s` } : {}),
+    output: out.length > 20000 ? "…" + out.slice(-20000) : out, human_terminal: `npx -y ramwisp ssh ${id}` };
+}
+
 async function runTool(name, a) {
   if (name === "wisp_login") {
     if (getToken()) return { ok: true, msg: `already connected to ${API}` };
@@ -123,6 +140,7 @@ async function runTool(name, a) {
         ...(r.lines.length > (a.tail ?? 40) ? { omitted: r.lines.length - (a.tail ?? 40) } : {}),
         watch_in_terminal: `npx -y ramwisp logs ${a.id} -f` }));
       case "kill_agent": return killAgent(a.id);
+      case "agent_exec": return execOn(a.id, a.command, a.timeout_s ?? 60);
       case "list_agents": return listAgents();
       default: throw new Error(`unknown tool: ${name}`);
     }
