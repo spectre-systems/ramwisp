@@ -10,10 +10,10 @@
 
 Transporte: vsock em produção; sockets unix com WISP_DEV=1 (container sem rede emulando a enclave).
 """
-import json, os, pwd, select, shlex, shutil, signal, socket, struct, subprocess, sys, threading, time
+import base64, fcntl, json, os, pwd, select, shlex, shutil, signal, socket, struct, subprocess, sys, termios, threading, time
 
 import nsm
-from sealed import EnclaveSession, b64, unb64
+from sealed import EnclaveSession, TtyChannel, b64, unb64
 
 DEV = os.environ.get("WISP_DEV") == "1"
 CTL_PORT, EGRESS_PORT, PARENT_CID = 5005, 8001, 3
@@ -47,9 +47,13 @@ def dial_parent_egress():
     return s
 
 
+SEND_LOCK = threading.Lock()                          # durante a execução, várias threads escrevem no ctl
+
+
 def send_frame(sock, obj):
     data = json.dumps(obj).encode()
-    sock.sendall(struct.pack(">I", len(data)) + data)
+    with SEND_LOCK:
+        sock.sendall(struct.pack(">I", len(data)) + data)
 
 
 def recv_exact(sock, n):
@@ -275,7 +279,126 @@ class LiveLog:
         send_frame(self.ctl, {"type": "log", "seq": self.seq, "sealed": self.session.seal_log(data)})
 
 
-def run_agent(job, ctl, session):
+class Terminals:
+    """Terminais cifrados abertos pelo cliente (`ramwisp ssh`): bash num PTY, como o usuário do agente, na pasta
+    do projeto. Só quem tem a chave do cliente abre uma sessão (TtyChannel); sid usado uma vez por vida da enclave,
+    então um repasse de sessão antiga é ignorado. Morrem junto com a enclave."""
+
+    MAX = 4
+
+    def __init__(self, session, ctl):
+        self.session, self.ctl = session, ctl
+        self.live, self.used, self.lock = {}, set(), threading.Lock()
+        self.pw = self.env = self.cwd = None
+
+    def configure(self, pw, env, cwd):
+        self.pw, self.env, self.cwd = pw, env, cwd
+
+    def handle(self, frame):
+        try:
+            sid = unb64(frame["sid"])
+        except Exception:
+            return
+        with self.lock:
+            s = self.live.get(sid)
+        if s is None:
+            if self.pw is None or len(sid) != 16 or sid in self.used or len(self.live) >= self.MAX:
+                return
+            ch = TtyChannel(self.session, sid)
+            try:
+                msg = json.loads(ch.open(frame))
+            except Exception:
+                return                                  # não é do cliente: ignora sem queimar o sid
+            if msg.get("t") == "open":
+                self.used.add(sid)
+                self.start(sid, ch, msg)
+            return
+        try:
+            msg = json.loads(s["ch"].open(frame))
+        except Exception:
+            return
+        t = msg.get("t")
+        try:
+            if t == "d":
+                os.write(s["fd"], base64.b64decode(msg["d"]))
+            elif t == "r":
+                self.resize(s["fd"], msg)
+            elif t == "x":
+                os.killpg(s["proc"].pid, signal.SIGHUP)
+        except OSError:
+            pass
+
+    @staticmethod
+    def resize(fd, msg):
+        rows, cols = max(1, min(int(msg.get("rows", 24)), 1000)), max(1, min(int(msg.get("cols", 80)), 1000))
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+    def start(self, sid, ch, msg):
+        master, slave = os.openpty()
+        self.resize(master, msg)
+        pw = self.pw
+        cmd = msg.get("cmd")
+        argv = ["bash", "-lc", str(cmd)] if cmd else ["bash", "-l"]
+
+        def child():
+            os.setsid()
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+            os.setgroups([]); os.setgid(pw.pw_gid); os.setuid(pw.pw_uid)
+        env = {**self.env, "TERM": str(msg.get("term") or "xterm-256color")[:40]}
+        proc = subprocess.Popen(argv, stdin=slave, stdout=slave, stderr=slave, env=env, cwd=self.cwd,
+                                preexec_fn=child, close_fds=True)
+        os.close(slave)
+        s = {"ch": ch, "fd": master, "proc": proc}
+        with self.lock:
+            self.live[sid] = s
+        threading.Thread(target=self.pump, args=(sid, s), daemon=True).start()
+
+    def pump(self, sid, s):
+        send = lambda obj: send_frame(self.ctl, {"type": "tty", "f": s["ch"].seal(json.dumps(obj).encode())})
+        try:
+            send({"t": "ready", "cwd": self.cwd})
+            while True:
+                try:
+                    data = os.read(s["fd"], 16384)
+                except OSError:
+                    break                               # EIO: o shell fechou
+                if not data:
+                    break
+                while len(data) < 65536 and select.select([s["fd"]], [], [], 0.015)[0]:
+                    try:
+                        more = os.read(s["fd"], 16384)
+                    except OSError:
+                        break
+                    if not more:
+                        break
+                    data += more
+                send({"t": "d", "d": base64.b64encode(data).decode()})
+            send({"t": "exit", "code": s["proc"].wait()})
+        except OSError:
+            pass
+        finally:
+            with self.lock:
+                self.live.pop(sid, None)
+            try:
+                os.close(s["fd"])
+            except OSError:
+                pass
+
+
+def read_ctl(ctl, terminals, acked):
+    """Durante a execução, tudo o que a hospedeira manda: quadros de terminal e o ack final."""
+    while True:
+        try:
+            fr = recv_frame(ctl)
+        except (ConnectionError, OSError, ValueError):
+            acked.set(); return
+        if fr.get("op") == "tty" and isinstance(fr.get("f"), dict):
+            terminals.handle(fr["f"])
+        elif fr.get("op") == "ack":
+            acked.set(); return
+
+
+def run_agent(job, ctl, session, terminals):
     pw = pwd.getpwnam(AGENT_USER)
     setup_scratch(pw)
     work = prepare_workspace(job, pw)
@@ -289,6 +412,9 @@ def run_agent(job, ctl, session):
            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1", "DISABLE_TELEMETRY": "1", "DISABLE_ERROR_REPORTING": "1",
            "HTTPS_PROXY": proxy, "HTTP_PROXY": proxy, "https_proxy": proxy, "http_proxy": proxy,
            "NO_PROXY": "localhost,127.0.0.1", "no_proxy": "localhost,127.0.0.1", **extra}
+
+    # o terminal do cliente enxerga o mesmo ambiente, menos a tarefa e a credencial
+    terminals.configure(pw, {k: v for k, v in env.items() if k != "MISSAO" and k not in extra}, work or pw.pw_dir)
 
     def drop():
         os.setgroups([]); os.setgid(pw.pw_gid); os.setuid(pw.pw_uid); os.chdir(work or pw.pw_dir)
@@ -359,17 +485,16 @@ def main():
     except Exception:
         send_frame(ctl, {"type": "error", "error": "entrada selada inválida"}); return
     del msg
+    terminals, acked = Terminals(session, ctl), threading.Event()
+    threading.Thread(target=read_ctl, args=(ctl, terminals, acked), daemon=True).start()
     try:
-        result = run_agent(job, ctl, session)
+        result = run_agent(job, ctl, session, terminals)
     except Exception as e:
         result = {"stdout": "", "stderr_tail": f"falha ao rodar o agente: {e}", "exit_code": 125}
     job.clear()                                        # melhor esforço: a memória some com a enclave de qualquer jeito
     stats = {k: result.get(k) for k in ("exit_code", "duration_s", "peak_mem_mib")}
     send_frame(ctl, {"type": "result", "sealed": session.seal_output(json.dumps(result).encode()), "meta": stats})
-    try:
-        recv_frame(ctl)                                # ack da hospedeira antes de morrer
-    except (ConnectionError, OSError, ValueError):
-        pass
+    acked.wait(60)                                     # ack da hospedeira antes de morrer
     log("fim")
 
 

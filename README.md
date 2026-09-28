@@ -51,6 +51,10 @@ The first time a tool is used, the MCP opens your browser to sign in (new accoun
 only and streamed back while it runs: `npx -y ramwisp logs <id> -f`, or launch with `ramwisp spawn … --follow`
 to get the live stream and then the result from one command (the skill runs it in the background by default).
 
+**Step inside.** `npx -y ramwisp ssh <id>` opens a terminal in the subagent's machine while it runs — processes,
+files, its full transcript. No port is opened: keystrokes and output are end-to-end encrypted between your
+computer and the enclave, and our server only relays them. `-c "cmd"` runs a single command.
+
 Your agent stays in your terminal. Each subagent gets a copy of your project (only what git tracks — never
 `.env` or anything in `.gitignore`), works on its own machine, and sends back an answer plus a patch you
 review and `git apply`. Your laptop’s RAM stays free.

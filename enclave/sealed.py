@@ -3,7 +3,7 @@
 X25519 efêmero dos dois lados; HKDF-SHA256 com salt = nonce do cliente; ChaCha20-Poly1305.
 Chaves diferentes por direção, amarradas às duas chaves públicas. Mesma especificação em mcp/src/crypto.js.
 """
-import base64, os
+import base64, os, struct
 
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -66,3 +66,32 @@ class ClientSession:
     def open_output(self, msg, aad=b" out"):
         k = _key(self.priv, self.enclave_pub, self.nonce, b"out", self.enclave_pub, self.pub)
         return ChaCha20Poly1305(k).decrypt(unb64(msg["iv"]), unb64(msg["ct"]), VERSION + aad)
+
+
+class TtyChannel:
+    """Terminal cifrado (wisp-v1 tty), lado da enclave. Chaves por sessão: HKDF com "tty-in"/"tty-out" + sid
+    (16 bytes aleatórios do cliente), amarradas às duas chaves públicas. Nonce = contador de 64 bits por direção,
+    estritamente crescente: quem repassa não consegue forjar, reordenar nem reenviar. Espelho em mcp/src/crypto.js."""
+
+    AAD = VERSION + b" tty"
+
+    def __init__(self, session, sid):
+        k = lambda d: ChaCha20Poly1305(_key(session.priv, session.client_pub, session.nonce, d + sid, session.pub, session.client_pub))
+        self.rx, self.tx = k(b"tty-in"), k(b"tty-out")
+        self.sid, self.rx_n, self.tx_n = sid, -1, 0
+
+    @staticmethod
+    def _iv(n):
+        return b"\0\0\0\0" + struct.pack(">Q", n)
+
+    def seal(self, plaintext):
+        n, self.tx_n = self.tx_n, self.tx_n + 1
+        return {"sid": b64(self.sid), "n": n, "ct": b64(self.tx.encrypt(self._iv(n), plaintext, self.AAD))}
+
+    def open(self, frame):
+        n = int(frame["n"])
+        if n <= self.rx_n:
+            raise ValueError("quadro repetido ou fora de ordem")
+        pt = self.rx.decrypt(self._iv(n), unb64(frame["ct"]), self.AAD)
+        self.rx_n = n
+        return pt
